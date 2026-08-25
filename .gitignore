@@ -1,0 +1,34 @@
+.env
+venv/
+__pycache__/
+*.pyc
+
+learner.json
+emotion.json
+relationship.json
+conversation.json
+
+.DS_Store
+*.zip
+
+data/progress.json
+data/user_profile.json
+data/language_profile.json# Environment / secrets
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Runtime memory / state
+learner.json
+emotion.json
+relationship.json
+conversation.json
+
+# OS
+.DS_Store
+
+# Archives
+*.zip
