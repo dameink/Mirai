@@ -38,3 +38,8 @@ conversation.json
 data/progress.json
 data/user_profile.json
 data/language_profile.json
+
+# Local AI assistant settings
+mobile/.claude/
+mobile/AGENTS.md
+mobile/CLAUDE.md
