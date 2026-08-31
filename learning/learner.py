@@ -64,7 +64,65 @@ class Learner:
         # SKILLS
         # =================================================
 
-        self.skills = {
+        self.skills = self.create_default_skills()
+
+        # =================================================
+        # HISTORY
+        # =================================================
+
+        self.history = []
+
+        # =================================================
+        # MOTIVATION
+        # =================================================
+
+        self.motivation = {
+            "consistency": 50,
+            "effort": 50,
+            "engagement": 50
+        }
+
+        # =================================================
+        # PERSISTENT MEMORY
+        # =================================================
+
+        self.learning_memory = LearningMemory()
+        self.memory_storage = MemoryStorage()
+
+        saved_memory = self.memory_storage.load()
+
+        if saved_memory:
+            self.learning_memory.load_memory(
+                saved_memory
+            )
+
+            self.restore_from_memory()
+
+    # =================================================
+    # CREATE SKILL
+    # =================================================
+
+    def create_skill(self):
+        return {
+            "value": 0,
+            "certainty": 0,
+            "evidence_count": 0,
+            "trend": 0
+        }
+
+    # =================================================
+    # CREATE DEFAULT SKILLS
+    # =================================================
+
+    def create_default_skills(self):
+        """
+        Create the complete default skill structure.
+
+        Persistent memory must never be able to remove
+        categories or skills from this structure.
+        """
+
+        return {
             "speaking": {
                 "fluency": self.create_skill(),
                 "pronunciation": self.create_skill(),
@@ -98,64 +156,19 @@ class Learner:
             }
         }
 
-        # =================================================
-        # HISTORY
-        # =================================================
-
-        self.history = []
-
-        # =================================================
-        # MOTIVATION
-        # =================================================
-
-        self.motivation = {
-            "consistency": 50,
-            "effort": 50,
-            "engagement": 50
-        }
-
-        # =================================================
-        # PERSISTENT MEMORY
-        # =================================================
-
-        self.learning_memory = LearningMemory()
-
-        self.memory_storage = MemoryStorage()
-
-        saved_memory = self.memory_storage.load()
-
-        if saved_memory:
-            self.learning_memory.load_memory(
-                saved_memory
-            )
-
-            if self.learning_memory.skills:
-                self.skills = self.learning_memory.skills
-
-            self.restore_from_memory()
-
-    # =================================================
-    # CREATE SKILL
-    # =================================================
-
-    def create_skill(self):
-        return {
-            "value": 0,
-            "certainty": 0,
-            "evidence_count": 0,
-            "trend": 0
-        }
-
     # =================================================
     # RESTORE LEARNER FROM MEMORY
     # =================================================
 
     def restore_from_memory(self):
         """
-        Restore current learner state from persistent memory.
+        Restore learner state from persistent memory.
 
-        Memory stores historical learning data.
-        Learner reconstructs its current state from it.
+        Persistent memory contains historical/current data,
+        but it must NEVER replace the default skill structure.
+
+        Missing categories and skills remain initialized.
+        Existing saved values are merged into them.
         """
 
         # =================================================
@@ -165,13 +178,18 @@ class Learner:
         saved_identity = self.learning_memory.identity
 
         if saved_identity:
-            self.identity.update(saved_identity)
+            self.identity.update(
+                saved_identity
+            )
 
         # =================================================
         # GOAL
         # =================================================
 
-        last_goal = self.learning_memory.get_last_goal()
+        last_goal = (
+            self.learning_memory
+            .get_last_goal()
+        )
 
         if last_goal:
             self.goals["primary"] = last_goal
@@ -180,35 +198,51 @@ class Learner:
         # CURRENT MEMORY SKILLS
         # =================================================
 
-        saved_skills = self.learning_memory.skills
+        saved_skills = (
+            self.learning_memory.skills
+        )
 
         if saved_skills:
 
             for category, skills in saved_skills.items():
 
+                # Ignore unknown categories
                 if category not in self.skills:
+                    continue
+
+                if not isinstance(skills, dict):
                     continue
 
                 for skill, data in skills.items():
 
+                    # Ignore unknown skills
                     if skill not in self.skills[category]:
                         continue
 
-                    self.skills[category][skill].update(data)
+                    if not isinstance(data, dict):
+                        continue
+
+                    # Merge saved data into default skill
+                    self.skills[category][skill].update(
+                        data
+                    )
 
         # =================================================
         # RECONSTRUCT SKILLS FROM HISTORY
-        # ONLY IF CURRENT SKILLS ARE NOT STORED
         # =================================================
 
-        if not saved_skills:
+        history = (
+            self.learning_memory.skill_history
+        )
 
-            history = self.learning_memory.skill_history
+        if history:
 
             for item in history:
 
+                if not isinstance(item, dict):
+                    continue
+
                 skill_path = item.get("skill")
-                value = item.get("value", 0)
 
                 if not skill_path:
                     continue
@@ -229,20 +263,29 @@ class Learner:
 
                 current = self.skills[category][skill]
 
-                current["value"] = value
-                current["evidence_count"] += 1
+                # Only use history when it contains a value
+                if "value" in item:
+                    current["value"] = item["value"]
+
+                current["evidence_count"] = max(
+                    current.get("evidence_count", 0),
+                    1
+                )
 
         # =================================================
         # PREFERENCES
         # =================================================
 
-        saved_preferences = self.learning_memory.preferences
+        saved_preferences = (
+            self.learning_memory.preferences
+        )
 
         if saved_preferences:
 
             for key, value in saved_preferences.items():
 
                 if key in self.learning_preferences:
+
                     self.learning_preferences[key] = value
 
     # =================================================
@@ -283,6 +326,7 @@ class Learner:
             for key, value in motivation.items():
 
                 if key in self.motivation:
+
                     self.motivation[key] = value
 
     # =================================================
@@ -296,6 +340,13 @@ class Learner:
         value_change,
         certainty_change
     ):
+        # Safety check
+        if category not in self.skills:
+            return
+
+        if skill not in self.skills[category]:
+            return
+
         current = self.skills[category][skill]
 
         old_value = current["value"]
@@ -327,13 +378,19 @@ class Learner:
             new_value - old_value
         )
 
-        # Save progress history
+        # =================================================
+        # SAVE PROGRESS HISTORY
+        # =================================================
+
         self.learning_memory.add_skill_progress(
             f"{category}.{skill}",
             new_value
         )
 
-        # Save CURRENT skill state
+        # =================================================
+        # SAVE CURRENT SKILL STATE
+        # =================================================
+
         self.learning_memory.skills = self.skills
 
         self.memory_storage.save(
@@ -344,15 +401,50 @@ class Learner:
     # GET SKILL
     # =================================================
 
+# =================================================
+# GET SKILL
+# =================================================
+
     def get_skill(
         self,
         category,
         skill
     ):
+        """
+        Safely return a skill.
+
+        Unknown categories/skills are created dynamically,
+        but category names are never treated as skills.
+        """
+
+        # Prevent category from becoming a skill
+        if skill == category:
+            default_skills = {
+                "speaking": "fluency",
+                "listening": "general",
+                "reading": "comprehension",
+                "writing": "structure",
+                "grammar": "tenses",
+                "vocabulary": "range"
+            }
+
+            skill = default_skills.get(category)
+
+            if skill is None:
+                return None
+
+        # Unknown category
+        if category not in self.skills:
+            self.skills[category] = {}
+
+        # Unknown skill
+        if skill not in self.skills[category]:
+            self.skills[category][skill] = self.create_skill()
+
         return self.skills[category][skill]
 
     # =================================================
-    # LEVEL
+    # GET SKILL LEVEL
     # =================================================
 
     def get_skill_level(
@@ -361,7 +453,10 @@ class Learner:
         skill
     ):
         score = (
-            self.skills[category][skill]["value"]
+            self.get_skill(
+                category,
+                skill
+            )["value"]
         )
 
         return self.level_system.get_level(
@@ -376,16 +471,22 @@ class Learner:
         self,
         category
     ):
+        if category not in self.skills:
+            return None
+
         skills = self.skills[category]
 
         values = []
 
         for skill in skills.values():
 
-            if skill["evidence_count"] > 0:
+            if not isinstance(skill, dict):
+                continue
+
+            if skill.get("evidence_count", 0) > 0:
 
                 values.append(
-                    skill["value"]
+                    skill.get("value", 0)
                 )
 
         if not values:
@@ -405,9 +506,14 @@ class Learner:
 
             for skill in category.values():
 
-                evidence_total += (
-                    skill["evidence_count"]
-                )
+                if isinstance(skill, dict):
+
+                    evidence_total += (
+                        skill.get(
+                            "evidence_count",
+                            0
+                        )
+                    )
 
         if evidence_total < 3:
 
@@ -519,7 +625,10 @@ class Learner:
 
             self.motivation[
                 "engagement"
-            ] -= 5
+            ] = max(
+                0,
+                self.motivation["engagement"] - 5
+            )
 
     # =================================================
     # HISTORY
@@ -541,7 +650,7 @@ class Learner:
             "mistakes": mistakes or [],
             "improvements": improvements or {},
             "difficulty": difficulty,
-            "date": datetime.now()
+            "date": datetime.now().isoformat()
         }
 
         self.history.append(
@@ -642,6 +751,10 @@ class Learner:
         }
 
 
+# =====================================================
+# TEST
+# =====================================================
+
 if __name__ == "__main__":
 
     user = Learner(
@@ -670,5 +783,3 @@ if __name__ == "__main__":
     print(
         user.get_profile()
     )
-
-    

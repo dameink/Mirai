@@ -1,7 +1,7 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
-
+import time
 
 load_dotenv()
 
@@ -12,28 +12,46 @@ client = OpenAI(
 )
 
 
+MODEL = "poolside/laguna-s-2.1:free"
+
+
 def ask_llm(prompt):
-
-    import time
-
     start = time.time()
 
-    response = client.chat.completions.create(
-        model="poolside/laguna-s-2.1:free",
-        messages=[
-            {
-                "role":"system",
-                "content":prompt
-            }
-        ]
-    )
+    max_retries = 3
 
-    end = time.time()
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": prompt
+                    }
+                ]
+            )
 
-    print(
-        "LLM TIME:",
-        end-start,
-        "seconds"
-    )
+            end = time.time()
 
-    return response.choices[0].message.content
+            print("LLM MODEL:", MODEL)
+            print("LLM TIME:", end - start, "seconds")
+
+            return response.choices[0].message.content
+
+        except Exception as error:
+            error_text = str(error)
+
+            if "429" not in error_text:
+                raise
+
+            print(
+                f"LLM RATE LIMIT "
+                f"(attempt {attempt + 1}/{max_retries})"
+            )
+
+            if attempt < max_retries - 1:
+                time.sleep(2)
+            else:
+                print("LLM RATE LIMIT: all retries failed")
+                return "Hmm... I can't connect right now. Try again in a moment."

@@ -148,6 +148,8 @@ def get_relationship():
         relationship
     )
 
+    save_relationship(relationship)
+
     return relationship
 
 

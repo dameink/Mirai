@@ -146,7 +146,7 @@ def decay_emotions():
         "curiosity": 1,
         "comfort": 0.5,
         "excitement": 1,
-        "stress": -1,
+        "stress": 1,
         "trust": 0.2
 
     }
@@ -182,9 +182,7 @@ def decay_emotions():
 
 def analyze_emotion(message):
 
-
     msg = message.lower()
-
 
     if any(
         word in msg
@@ -196,13 +194,10 @@ def analyze_emotion(message):
             "anxious"
         ]
     ):
-
         return {
             "emotion": "anxiety",
             "intensity": 70
         }
-
-
 
     if any(
         word in msg
@@ -213,13 +208,10 @@ def analyze_emotion(message):
             "joy"
         ]
     ):
-
         return {
             "emotion": "happiness",
             "intensity": 80
         }
-
-
 
     if any(
         word in msg
@@ -229,12 +221,9 @@ def analyze_emotion(message):
             "upset"
         ]
     ):
-
         return {
             "emotion": "sadness",
             "intensity": 70
         }
-
-
 
     return None

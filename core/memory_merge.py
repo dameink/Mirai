@@ -237,6 +237,30 @@ def merge_memory(
 
     for old_memory in memories:
 
+                # conflict
+
+        if is_conflict(
+            new_memory,
+            old_memory
+        ):
+
+
+            update_memory(
+                old_memory,
+                new_memory
+            )
+
+
+            return {
+
+                "action":
+                "updated",
+
+                "memory":
+                old_memory
+
+            }
+
 
         # duplicate
 
@@ -255,34 +279,6 @@ def merge_memory(
 
                 "action":
                 "reinforced",
-
-                "memory":
-                old_memory
-
-            }
-
-
-
-
-
-        # conflict
-
-        if is_conflict(
-            new_memory,
-            old_memory
-        ):
-
-
-            update_memory(
-                old_memory,
-                new_memory
-            )
-
-
-            return {
-
-                "action":
-                "updated",
 
                 "memory":
                 old_memory

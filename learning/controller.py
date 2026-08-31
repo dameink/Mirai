@@ -11,6 +11,10 @@ from learning.feedback import FeedbackSystem
 from learning.adaptation import Adaptation
 from learning.memory_analysis import MemoryAnalysis
 from learning.goal_detector import GoalDetector
+from learning.learning_events import (
+    detect_learning_event,
+    detect_learning_goal
+)
 
 
 class LearningController:
@@ -226,13 +230,15 @@ class LearningController:
     # Convert result to evidence
     # =================================
 
+# =================================
+# Convert result to evidence
+# =================================
+
     def process_result(
         self,
         feedback_data
     ):
-
         evidences = []
-
 
         difficulty = (
             self.difficulty
@@ -240,46 +246,32 @@ class LearningController:
             ["difficulty"]
         )
 
-
         for skill, value in feedback_data.items():
-
 
             category, real_skill = (
                 self.detect_category(skill)
             )
 
+            # Never allow category/category
+            if category == real_skill:
+                continue
 
             evidence = Evidence(
-
                 skill=real_skill,
-
                 category=category,
-
                 value=value,
-
+                topic=skill,
                 evidence_type="performance",
-
                 source="activity",
-
                 certainty=70,
-
                 context="activity",
-
                 difficulty=difficulty
             )
 
+            evidences.append(evidence)
 
-            evidences.append(
-                evidence
-            )
-
-
-        return (
-
-            self.updater
-            .update_from_evidence(
-                evidences
-            )
+        return self.updater.update_from_evidence(
+            evidences
         )
 
 
@@ -459,28 +451,54 @@ class LearningController:
 
 
             session.save_result(
-
-                result=
-                feedback_data,
-
-
-                improvements=
-                updates,
-
-
-                feedback=
-                feedback.get_feedback(),
-
-
-                mistakes=
-                [
+                result=feedback_data,
+                improvements=updates,
+                feedback=feedback.get_feedback(),
+                mistakes=[
                     m["description"]
                     for m in mistakes
                 ]
             )
 
+            session.performance = {
+                "successes": sum(
+                    1
+                    for value in feedback_data.values()
+                    if isinstance(value, (int, float))
+                    and value >= 70
+                ),
+                "mistakes": sum(
+                    1
+                    for value in feedback_data.values()
+                    if isinstance(value, (int, float))
+                    and value < 70
+                ),
+                "accuracy": round(
+                    sum(
+                        value
+                        for value in feedback_data.values()
+                        if isinstance(value, (int, float))
+                    )
+                    /
+                    len([
+                        value
+                        for value in feedback_data.values()
+                        if isinstance(value, (int, float))
+                    ]),
+                    2
+                )
+                if feedback_data
+                else 0
+            }
 
-            session.complete()
+            session.complete(
+                result=feedback_data,
+                improvements=updates,
+                mistakes=[
+                    m["description"]
+                    for m in mistakes
+                ]
+            )
 
         strategy = self.get_next_strategy()
 
@@ -517,7 +535,6 @@ class LearningController:
         }
 
 
-
     # =================================
     # Skill mapping
     # =================================
@@ -526,75 +543,49 @@ class LearningController:
         self,
         skill
     ):
+        """
+        Convert a skill name into:
+            category + real skill
 
+        Categories themselves are never treated
+        as individual skills.
+        """
 
         mapping = {
+            # Speaking
+            "fluency": ("speaking", "fluency"),
+            "pronunciation": ("speaking", "pronunciation"),
+            "confidence": ("speaking", "confidence"),
+            "accuracy": ("speaking", "accuracy"),
 
+            # Grammar
+            "grammar": ("grammar", "tenses"),
+            "tenses": ("grammar", "tenses"),
+            "articles": ("grammar", "articles"),
+            "word_order": ("grammar", "word_order"),
 
-            "fluency":
-                ("speaking", "fluency"),
+            # Writing
+            "structure": ("writing", "structure"),
+            "task_response": ("writing", "task_response"),
 
+            # Vocabulary
+            "vocabulary": ("vocabulary", "range"),
+            "range": ("vocabulary", "range"),
+            "collocations": ("vocabulary", "collocations"),
 
-            "pronunciation":
-                ("speaking", "pronunciation"),
+            # Listening
+            "listening": ("listening", "general"),
+            "general": ("listening", "general"),
 
-
-            "confidence":
-                ("speaking", "confidence"),
-
-
-            "accuracy":
-                ("speaking", "accuracy"),
-
-
-            "grammar":
-                ("grammar", "tenses"),
-
-
-            "tenses":
-                ("grammar", "tenses"),
-
-
-            "articles":
-                ("grammar", "articles"),
-
-
-            "word_order":
-                ("grammar", "word_order"),
-
-
-            "structure":
-                ("writing", "structure"),
-
-
-            "task_response":
-                ("writing", "task_response"),
-
-
-            "vocabulary":
-                ("vocabulary", "range"),
-
-
-            "collocations":
-                ("vocabulary", "collocations"),
-
-
-            "listening":
-                ("listening", "general")
-
+            # Reading
+            "reading": ("reading", "comprehension"),
+            "comprehension": ("reading", "comprehension"),
         }
 
-
         return mapping.get(
-
             skill,
-
-            (
-                "speaking",
-                "fluency"
-            )
+            ("speaking", "fluency")
         )
-
 
 
     # =================================

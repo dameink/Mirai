@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 
 
 CONVERSATION_FILE = "conversation.json"
@@ -20,15 +21,13 @@ def save_conversation(conversation):
         json.dump(conversation, file, indent=4)
 
 
-def add_message(role, content):
-
+def add_message(role, content): 
     conversation = load_conversation()
-
     conversation.append({
         "role": role,
-        "content": content
+        "content": content,
+        "timestamp": datetime.now().isoformat()
     })
-
     save_conversation(conversation)
 
 

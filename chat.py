@@ -24,9 +24,15 @@ from core.response_engine import (
 
 from core.personality_voice import get_personality_voice
 
-from core.emotion import reset_emotion
-from core.relationship import reset_relationship
+from core.emotion import (
+    get_emotion,
+    reset_emotion
+)
 
+from core.relationship import (
+    get_relationship,
+    reset_relationship
+)
 
 # ==========================
 # LEARNING SYSTEM
@@ -37,36 +43,37 @@ from core.learning_bridge import LearningBridge
 from core.learning_context import LearningContext
 
 
-
-# Create learning system
+# =========================================================
+# LEARNING SYSTEM INITIALIZATION
+# =========================================================
 
 learner = Learner(
     native_language="",
     learning_language="English"
 )
 
-
 learning_bridge = LearningBridge(
     learner
 )
-
 
 learning_context = LearningContext(
     learning_bridge
 )
 
 
-# ==========================
+# =========================================================
 # MEMORY EXTRACTION
-# ==========================
-
+# =========================================================
 
 def process_memory(message):
 
-    text = message.lower()
+    text = message.lower().strip()
 
+    # -------------------------
+    # I LIKE ...
+    # -------------------------
 
-    if text.startswith("i like"):
+    if text.startswith("i like "):
 
         memory = get_memory()
 
@@ -75,84 +82,24 @@ def process_memory(message):
             or "User"
         )
 
-
         thing = text.replace(
             "i like ",
-            ""
-        )
+            "",
+            1
+        ).strip()
+
+        if thing:
+
+            remember_semantic(
+                content=f"{name} likes {thing}",
+                importance=50,
+                category="interest"
+            )
 
 
-        remember_semantic(
-            content=f"{name} likes {thing}",
-            importance=50,
-            category="interest"
-        )
-
-
-
-# ==========================
-# DEBUG
-# ==========================
-
-
-def show_status():
-
-    state = get_mirai_state()
-
-
-    print("\n===== EMOTION =====")
-    print(state["emotion"])
-
-
-    print("\n===== RELATIONSHIP =====")
-    print(state["relationship"])
-
-
-    print("\n===== BEHAVIOR =====")
-    print(state["behavior"])
-
-
-    print("\n===== MEMORY =====")
-    print(state["memory"])
-
-
-
-    print("\n===== LEARNING =====")
-
-    print(
-        learning_context.get_context()
-    )
-
-
-
-def debug():
-
-    state = get_mirai_state()
-
-
-    for key,value in state.items():
-
-        print(
-            "\n",
-            key.upper()
-        )
-
-        print(value)
-
-
-
-    print("\nLEARNING CONTEXT")
-
-    print(
-        learning_context.get_context()
-    )
-
-
-
-# ==========================
-# COMMANDS
-# ==========================
-
+# =========================================================
+# COMMAND HELP
+# =========================================================
 
 def show_help():
 
@@ -162,7 +109,6 @@ Mirai commands:
 /memory
 /status
 /debug
-
 /learning
 
 /reset_memory
@@ -173,34 +119,89 @@ Mirai commands:
 /forget <fact>
 
 exit
-
 """)
 
 
+# =========================================================
+# STATUS
+# =========================================================
 
-# ==========================
-# MAIN LOOP
-# ==========================
+def show_status():
 
+    state = get_mirai_state()
 
-while True:
+    print("\n===== EMOTION =====")
+    print(
+        state.get(
+            "emotion",
+            {}
+        )
+    )
 
+    print("\n===== RELATIONSHIP =====")
+    print(
+        state.get(
+            "relationship",
+            {}
+        )
+    )
 
-    message = input(
-        "You: "
+    print("\n===== BEHAVIOR =====")
+    print(
+        state.get(
+            "behavior",
+            {}
+        )
+    )
+
+    print("\n===== MEMORY =====")
+    print(
+        state.get(
+            "memory",
+            {}
+        )
+    )
+
+    print("\n===== LEARNING =====")
+
+    print(
+        learning_context.get_context()
     )
 
 
+# =========================================================
+# DEBUG
+# =========================================================
 
-    if message == "exit":
-        break
+def debug():
+
+    state = get_mirai_state()
+
+    for key, value in state.items():
+
+        print(
+            "\n",
+            key.upper()
+        )
+
+        print(value)
+
+    print("\nLEARNING CONTEXT")
+
+    print(
+        learning_context.get_context()
+    )
 
 
+# =========================================================
+# COMMAND PROCESSOR
+# =========================================================
 
-    # ======================
-    # COMMANDS
-    # ======================
+def process_command(message):
 
+    # -------------------------
+    # MEMORY
+    # -------------------------
 
     if message == "/memory":
 
@@ -208,9 +209,12 @@ while True:
             get_memory()
         )
 
-        continue
+        return True
 
 
+    # -------------------------
+    # LEARNING
+    # -------------------------
 
     if message == "/learning":
 
@@ -218,25 +222,34 @@ while True:
             learning_context.get_context()
         )
 
-        continue
+        return True
 
 
+    # -------------------------
+    # STATUS
+    # -------------------------
 
     if message == "/status":
 
         show_status()
 
-        continue
+        return True
 
 
+    # -------------------------
+    # DEBUG
+    # -------------------------
 
     if message == "/debug":
 
         debug()
 
-        continue
+        return True
 
 
+    # -------------------------
+    # RESET MEMORY
+    # -------------------------
 
     if message == "/reset_memory":
 
@@ -246,9 +259,12 @@ while True:
             "Memory cleared."
         )
 
-        continue
+        return True
 
 
+    # -------------------------
+    # RESET EMOTION
+    # -------------------------
 
     if message == "/reset_emotion":
 
@@ -258,9 +274,12 @@ while True:
             "Emotion reset."
         )
 
-        continue
+        return True
 
 
+    # -------------------------
+    # RESET RELATIONSHIP
+    # -------------------------
 
     if message == "/reset_relationship":
 
@@ -270,9 +289,12 @@ while True:
             "Relationship reset."
         )
 
-        continue
+        return True
 
 
+    # -------------------------
+    # RESET ALL
+    # -------------------------
 
     if message == "/reset_all":
 
@@ -288,25 +310,43 @@ while True:
             "All systems reset."
         )
 
-        continue
+        return True
 
 
+    # -------------------------
+    # HELP
+    # -------------------------
 
     if message == "/help":
 
         show_help()
 
-        continue
+        return True
 
 
+    # -------------------------
+    # FORGET
+    # -------------------------
 
     if message.startswith("/forget"):
 
         keyword = (
             message
-            .replace("/forget", "")
+            .replace(
+                "/forget",
+                "",
+                1
+            )
             .strip()
         )
+
+        if not keyword:
+
+            print(
+                "Please specify what I should forget."
+            )
+
+            return True
 
 
         result = forget_semantic(
@@ -315,94 +355,210 @@ while True:
 
 
         if result:
-            print("Memory forgotten.")
+
+            print(
+                "Memory forgotten."
+            )
 
         else:
-            print("I couldn't find that memory.")
+
+            print(
+                "I couldn't find that memory."
+            )
+
+        return True
 
 
-        continue
+    return False
 
 
+# =========================================================
+# MAIN CHAT
+# =========================================================
 
-    # ======================
-    # MEMORY
-    # ======================
+def chat(message):
 
+    message = message.strip()
+
+    if not message:
+
+        return {
+            "response": "",
+            "state": get_mirai_state()
+        }
+
+
+    # =====================================================
+    # 1. MEMORY EXTRACTION
+    # =====================================================
 
     process_memory(
         message
     )
 
 
+    # =====================================================
+    # 2. LEARNING PROCESSING
+    # =====================================================
+    #
+    # This is where the message enters the learning system.
+    #
+    # It can detect:
+    # - learning goals
+    # - learning requests
+    # - exam preparation
+    # - progress
+    # - failure
+    #
+    # and update the learner.
+    # =====================================================
 
-    # ======================
-    # SOCIAL UPDATE
-    # ======================
-
-
-    process_social_interaction(
-        message
+    learning_result = (
+        learning_context
+        .process_message(
+            message
+        )
     )
 
 
+    # =====================================================
+    # 3. SOCIAL PROCESSING
+    # =====================================================
+    #
+    # Updates:
+    # - relationship
+    # - emotional/social state
+    # - interaction information
+    # =====================================================
 
-    # ======================
-    # MIRAI CONTEXT
-    # ======================
+    try:
 
+        process_social_interaction(
+            message
+        )
+
+    except TypeError:
+
+        # If the current social_brain expects
+        # additional arguments, try using the
+        # existing interface.
+
+        try:
+
+            process_social_interaction(
+                message,
+                None
+            )
+
+        except Exception:
+
+            pass
+
+    except Exception:
+
+        pass
+
+
+    # =====================================================
+    # 4. BUILD MIRAI RESPONSE CONTEXT
+    # =====================================================
+    #
+    # This collects the existing Mirai systems:
+    #
+    # memory
+    # emotion
+    # relationship
+    # personality
+    # behavior
+    # etc.
+    # =====================================================
 
     context = get_response_context(
         message
     )
 
 
+    # =====================================================
+    # 5. ADD LEARNING TO CONTEXT
+    # =====================================================
+    #
+    # Learning is NOT separate from the conversation.
+    #
+    # It becomes part of the context used to decide
+    # how Mirai should respond.
+    # =====================================================
 
-    # ======================
-    # ADD LEARNING CONTEXT
-    # ======================
+    try:
 
-    learning_influence = learning_bridge.get_learning_influence(
-        message,
-        learning_context
-    )
+        learning_profile = (
+            learning_context
+            .get_context()
+        )
+
+    except Exception:
+
+        learning_profile = (
+            learner.get_profile()
+        )
+
+
+    try:
+
+        learning_influence = (
+            learning_bridge
+            .get_learning_influence(
+                message,
+                learning_context
+            )
+        )
+
+    except Exception:
+
+        learning_influence = {}
+
 
     context["learning"] = {
 
         "profile":
-            learning_context.get_context(),
-
+            learning_profile,
 
         "influence":
-            learning_bridge.get_learning_influence(
-                message,
-                learning_context
-            )
+            learning_influence
 
     }
 
 
+    # =====================================================
+    # 6. CURRENT MIRAI STATE
+    # =====================================================
 
-    # ======================
-    # RESPONSE STRATEGY
-    # ======================
+    state = get_mirai_state()
 
+
+    # =====================================================
+    # 7. RESPONSE STRATEGY
+    # =====================================================
+    #
+    # The response engine now sees BOTH:
+    #
+    # Mirai's state
+    # +
+    # learner's state
+    #
+    # and decides how Mirai should respond.
+    # =====================================================
 
     strategy = choose_response_strategy(
         context
     )
 
 
-
-    #print("\nSTRATEGY:")
-    #print(strategy)
-
-
-
-    # ======================
-    # PERSONALITY VOICE
-    # ======================
-
+    # =====================================================
+    # 8. PERSONALITY VOICE
+    # =====================================================
+    #
+    # Personality determines HOW Mirai says it.
+    # =====================================================
 
     voice = get_personality_voice(
         context,
@@ -410,15 +566,18 @@ while True:
     )
 
 
-   # print("\nVOICE:")
-    #print(voice)
-
-
-
-    # ======================
-    # PROMPT
-    # ======================
-
+    # =====================================================
+    # 9. BUILD FINAL PROMPT
+    # =====================================================
+    #
+    # The prompt receives:
+    #
+    # user message
+    # Mirai context
+    # learning context
+    # response strategy
+    # personality voice
+    # =====================================================
 
     prompt = build_prompt(
         message,
@@ -428,37 +587,143 @@ while True:
     )
 
 
-
-    # ======================
-    # LLM
-    # ======================
-
+    # =====================================================
+    # 10. LLM
+    # =====================================================
 
     response = ask_llm(
         prompt
     )
 
 
-
-    print(
-        "\nMirai:",
-        response
-    )
-
-
-
-    # ======================
-    # SAVE CONVERSATION
-    # ======================
-
+    # =====================================================
+    # 11. SAVE CONVERSATION
+    # =====================================================
 
     add_message(
         "user",
         message
     )
 
-
     add_message(
         "assistant",
         response
     )
+
+
+    # =====================================================
+    # 12. GET UPDATED STATE
+    # =====================================================
+    #
+    # Important:
+    # state is obtained AFTER processing the message,
+    # so frontend receives the updated state.
+    # =====================================================
+
+    chat_state = {
+
+        "emotion":
+            get_emotion()["state"],
+
+        "relationship":
+            get_relationship(),
+
+        "learning":
+            learner.get_profile()
+
+    }
+
+
+    # =====================================================
+    # 13. RETURN EVERYTHING
+    # =====================================================
+
+    return {
+
+        "message":
+            message,
+
+        "response":
+            response,
+
+        "context":
+            context,
+
+        "strategy":
+            strategy,
+
+        "voice":
+            voice,
+
+        "learning":
+            learning_result,
+
+        "state":
+            chat_state
+
+    }
+
+
+# =========================================================
+# TERMINAL CHAT
+# =========================================================
+
+if __name__ == "__main__":
+
+    print(
+        "Mirai is ready."
+    )
+
+    print(
+        "Type /help for commands."
+    )
+
+
+    while True:
+
+        message = input(
+            "\nYou: "
+        ).strip()
+
+
+        if message.lower() == "exit":
+
+            print(
+                "Goodbye!"
+            )
+
+            break
+
+
+        # =================================================
+        # COMMANDS
+        # =================================================
+
+        if process_command(
+            message
+        ):
+
+            continue
+
+
+        # =================================================
+        # CHAT
+        # =================================================
+
+        try:
+
+            result = chat(
+                message
+            )
+
+            print(
+                "\nMirai:",
+                result["response"]
+            )
+
+        except Exception as e:
+
+            print(
+                "\nMirai error:",
+                str(e)
+            )

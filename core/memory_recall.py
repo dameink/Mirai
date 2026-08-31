@@ -401,6 +401,13 @@ def category_bonus(
 
     }
 
+    if category == "personal":
+        msg = message.lower()
+        content = memory.get("content", "").lower()
+
+        if "my name" in msg and "user name" in content:
+            return 80
+
 
     return mapping.get(
         context,

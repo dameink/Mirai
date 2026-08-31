@@ -1,16 +1,15 @@
 learning_events = {
-
     "learning_goal": {
         "keywords": [
             "i want to improve my english",
             "i want to learn english",
             "my goal is",
             "i want to prepare for",
-            "i want to get better at"
+            "i want to get better at",
+            "i want to practice"
         ],
         "priority": 1
     },
-
 
     "learning_request": {
         "keywords": [
@@ -24,7 +23,6 @@ learning_events = {
         "priority": 1
     },
 
-
     "exam_preparation": {
         "keywords": [
             "prepare for ielts",
@@ -34,16 +32,6 @@ learning_events = {
         ],
         "priority": 1
     },
-
-
-    "language_error": {
-        "keywords": [
-            # возможно пустой,
-            # лучше потом через analyzer
-        ],
-        "priority": 2
-    },
-
 
     "learning_progress": {
         "keywords": [
@@ -56,7 +44,6 @@ learning_events = {
         "priority": 2
     },
 
-
     "learning_failure": {
         "keywords": [
             "i don't understand",
@@ -68,13 +55,12 @@ learning_events = {
     }
 }
 
-def detect_learning_event(message):
 
+def detect_learning_event(message):
     text = message.lower()
 
     detected = None
     highest_priority = 999
-
 
     for event, data in learning_events.items():
 
@@ -83,9 +69,34 @@ def detect_learning_event(message):
             if keyword in text:
 
                 if data["priority"] < highest_priority:
-
                     detected = event
                     highest_priority = data["priority"]
 
-
     return detected
+
+
+def detect_learning_goal(message):
+    text = message.lower()
+
+    # IELTS
+    if "ielts" in text:
+        return "ielts"
+
+    # Conversation / English
+    if (
+        "improve my english" in text
+        or "learn english" in text
+        or "practice english" in text
+        or "conversation" in text
+    ):
+        return "conversation"
+
+    # Speaking
+    if (
+        "improve my speaking" in text
+        or "get better at speaking" in text
+        or "practice speaking" in text
+    ):
+        return "speaking"
+
+    return None

@@ -313,6 +313,31 @@ class LearningSession:
 
         self.improvements = improvements
 
+        if result:
+            values = [
+                value
+                for value in result.values()
+                if isinstance(value, (int, float))
+                ]
+
+        if values:
+            average = sum(values) / len(values)
+
+            self.performance["accuracy"] = round(
+                    average,
+                    2
+                )
+
+            self.performance["successes"] = sum(
+                    1 for value in values
+                    if value >= 70
+                )
+
+            self.performance["mistakes"] = sum(
+                    1 for value in values
+                    if value < 70
+                )
+
         if mistakes:
             self.mistakes = mistakes
 
@@ -415,26 +440,14 @@ class SessionSystem:
         mistakes=None,
         improvements=None
     ):
-
-
         session = self.get_current_session()
 
-
-
         if session:
-
-
             session.complete(
-
-                result,
-
-                mistakes,
-
-                improvements
-
+                result=result,
+                improvements=improvements,
+                mistakes=mistakes
             )
-
-
 
         return session
 
