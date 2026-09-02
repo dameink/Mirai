@@ -13,6 +13,8 @@ from core.emotion import get_emotion, reset_emotion
 from core.relationship import get_relationship, reset_relationship
 
 from core.learning import create_learning_context
+from contextlib import asynccontextmanager
+from db.init_db import init_db
 
 from core.conversation import (
     load_conversation,
@@ -24,10 +26,14 @@ from core.memory import clear_memory
 from auth.router import router as auth_router
 from auth.router import get_current_user
 
-
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 app = FastAPI(
     title="Mirai API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.include_router(auth_router)
