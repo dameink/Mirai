@@ -1,22 +1,51 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
 import json
+from typing import Optional
 
-from core.mirai import chat
-from core.emotion import get_emotion
-from core.learning import learning_context
+from fastapi import FastAPI, Depends
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from db.database import get_db
+
+from core.mirai import chat as mirai_chat
+
+from core.emotion import get_emotion, reset_emotion
+from core.relationship import get_relationship, reset_relationship
+
+from core.learning import create_learning_context
+
+from core.conversation import (
+    load_conversation,
+    clear_conversation,
+)
+
+from core.memory import clear_memory
+
+from auth.router import router as auth_router
+from auth.router import get_current_user
 
 
-app = FastAPI()
+app = FastAPI(
+    title="Mirai API",
+    version="1.0.0",
+)
 
+app.include_router(auth_router)
+
+
+# =========================================
+# REQUEST MODELS
+# =========================================
 
 class ChatRequest(BaseModel):
     message: str
+    language: Optional[str] = None
+    mode: Optional[str] = None
 
 
-# =================================
+# =========================================
 # HOME
-# =================================
+# =========================================
 
 @app.get("/")
 def home():
@@ -25,139 +54,172 @@ def home():
     }
 
 
-# =================================
+# =========================================
 # CHAT
-# =================================
+# =========================================
 
 @app.post("/chat")
-def chat_endpoint(request: ChatRequest):
+def chat_endpoint(
+    request: ChatRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    result = mirai_chat(
+        request.message,
+        language=request.language,
+        mode=request.mode,
+        user_id=current_user["id"],
+        db=db,
+    )
 
-    result = chat(request.message)
-
-    return {
-        "mirai": result["response"],
-        "state": result["state"]
-    }
+    return result
 
 
-# =================================
+# =========================================
 # CONVERSATION
-# =================================
+# =========================================
 
 @app.get("/conversation")
-def conversation():
+def conversation(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user["id"]
 
-    with open(
-        "conversation.json",
-        "r",
-        encoding="utf-8"
-    ) as file:
-
-        return json.load(file)
+    return load_conversation(
+        user_id=user_id,
+        db=db,
+    )
 
 
 @app.delete("/conversation")
-def delete_conversation():
+def delete_conversation(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user["id"]
 
-    with open(
-        "conversation.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            [],
-            file,
-            indent=4
-        )
+    clear_conversation(
+        user_id=user_id,
+        db=db,
+    )
 
     return {
         "message": "Conversation cleared"
     }
 
 
-# =================================
+# =========================================
 # STATE
-# =================================
+# =========================================
 
 @app.get("/state")
-def state():
+def state(
+    current_user=Depends(get_current_user),
+):
+    user_id = current_user["id"]
 
-    with open(
-        "relationship.json",
-        "r",
-        encoding="utf-8"
-    ) as file:
-
-        relationship = json.load(file)
-
-    emotion = get_emotion()
-
-    learning = learning_context.learning
+    learning_context = create_learning_context(user_id)
 
     return {
-        "emotion": emotion["state"],
-        "relationship": relationship,
-        "learning": learning.get_profile()
+        "emotion": get_emotion(
+            user_id=user_id,
+        )["state"],
+
+        "relationship": get_relationship(
+            user_id=user_id,
+        ),
+
+        "learning": learning_context.learning.get_profile(),
     }
 
 
-# =================================
+# =========================================
 # LEARNING PROFILE
-# =================================
+# =========================================
 
 @app.get("/learning/profile")
-def learning_profile():
+def learning_profile(
+    current_user=Depends(get_current_user),
+):
+    user_id = current_user["id"]
+
+    learning_context = create_learning_context(user_id)
 
     return learning_context.learning.get_profile()
 
 
-# =================================
+# =========================================
 # LEARNING STRATEGY
-# =================================
+# =========================================
 
 @app.get("/learning/strategy")
-def learning_strategy():
+def learning_strategy(
+    current_user=Depends(get_current_user),
+):
+    user_id = current_user["id"]
+
+    learning_context = create_learning_context(user_id)
 
     return learning_context.learning.get_strategy()
 
 
-# =================================
+# =========================================
 # LEARNING HISTORY
-# =================================
+# =========================================
 
 @app.get("/learning/history")
-def learning_history():
+def learning_history(
+    current_user=Depends(get_current_user),
+):
+    user_id = current_user["id"]
+
+    learning_context = create_learning_context(user_id)
 
     return learning_context.learning.get_history()
 
 
-# =================================
+# =========================================
 # LEARNING MEMORY
-# =================================
+# =========================================
 
 @app.get("/learning/memory")
-def learning_memory():
+def learning_memory(
+    current_user=Depends(get_current_user),
+):
+    user_id = current_user["id"]
+
+    learning_context = create_learning_context(user_id)
 
     return learning_context.learning.get_learning_memory()
 
 
-# =================================
+# =========================================
 # LEARNING ANALYSIS
-# =================================
+# =========================================
 
 @app.get("/learning/analysis")
-def learning_analysis():
+def learning_analysis(
+    current_user=Depends(get_current_user),
+):
+    user_id = current_user["id"]
+
+    learning_context = create_learning_context(user_id)
 
     return learning_context.learning.get_memory_analysis()
 
 
-# =================================
+# =========================================
 # START LEARNING SESSION
-# =================================
+# =========================================
 
 @app.post("/learning/session/start")
-def start_learning_session():
+def start_learning_session(
+    current_user=Depends(get_current_user),
+):
+    user_id = current_user["id"]
+
+    learning_context = create_learning_context(user_id)
 
     session = learning_context.learning.start_learning()
 
@@ -166,197 +228,58 @@ def start_learning_session():
     }
 
 
-# =================================
+# =========================================
 # FULL RESET
-# =================================
+# =========================================
 
 @app.delete("/reset")
-def full_reset():
+def full_reset(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user["id"]
 
-    # =================================
-    # 1. Conversation
-    # =================================
+    # -------------------------------------
+    # Conversation
+    # -------------------------------------
 
-    with open(
-        "conversation.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
+    clear_conversation(
+        user_id=user_id,
+        db=db,
+    )
 
-        json.dump(
-            [],
-            file,
-            indent=4
-        )
+    # -------------------------------------
+    # Memory
+    # -------------------------------------
 
-    # =================================
-    # 2. Memory
-    # =================================
+    clear_memory(
+        user_id=user_id,
+        db=db,
+    )
 
-    with open(
-        "memory.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
+    # -------------------------------------
+    # Emotion
+    # -------------------------------------
 
-        json.dump(
-            {
-                "semantic": {
-                    "facts": []
-                },
-                "episodic": {
-                    "events": []
-                },
-                "emotional": {
-                    "states": []
-                },
-                "relationship": {
-                    "trust": 0,
-                    "affection": 0,
-                    "familiarity": 0,
-                    "interaction_count": 0
-                }
-            },
-            file,
-            indent=4,
-            ensure_ascii=False
-        )
+    reset_emotion(
+        user_id=user_id,
+    )
 
-    # =================================
-    # 3. Emotion
-    # =================================
+    # -------------------------------------
+    # Relationship
+    # -------------------------------------
 
-    with open(
-        "emotion.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
+    reset_relationship(
+        user_id=user_id,
+    )
 
-        json.dump(
-            {
-                "state": {
-                    "happiness": 70,
-                    "energy": 80,
-                    "trust": 50,
-                    "curiosity": 80,
-                    "comfort": 60,
-                    "excitement": 50,
-                    "stress": 20
-                }
-            },
-            file,
-            indent=4
-        )
+    # -------------------------------------
+    # Learning
+    # -------------------------------------
 
-    # =================================
-    # 4. Relationship
-    # =================================
-
-    with open(
-        "relationship.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            {
-                "stage": "stranger",
-                "closeness": 0,
-                "familiarity": 0,
-                "bond": 20,
-                "affection": 0,
-                "respect": 50,
-                "comfort": 50
-            },
-            file,
-            indent=4
-        )
+    learning_context = create_learning_context(user_id)
+    learning_context.learning.learner.reset()
 
     return {
         "message": "Mirai fully reset"
-    }
-
-
-    # =================================
-    # 2. Learning memory
-    # =================================
-
-    with open(
-        "memory.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            {
-                "semantic": {
-                    "facts": []
-                },
-                "episodic": {
-                    "events": []
-                },
-                "emotional": {
-                    "states": []
-                },
-                "relationship_memory": []
-            },
-            file,
-            indent=4
-        )
-
-
-    # =================================
-    # 3. Emotion
-    # =================================
-
-    with open(
-        "emotion.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            {
-                "state": {
-                    "happiness": 70,
-                    "energy": 80,
-                    "trust": 50,
-                    "curiosity": 80,
-                    "comfort": 60,
-                    "excitement": 50,
-                    "stress": 20
-                }
-            },
-            file,
-            indent=4
-        )
-
-
-    # =================================
-    # 4. Relationship
-    # =================================
-
-    with open(
-        "relationship.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            {
-                "stage": "stranger",
-                "closeness": 0,
-                "familiarity": 0.5,
-                "bond": 20.0,
-                "affection": 0,
-                "respect": 50,
-                "comfort": 50
-            },
-            file,
-            indent=4
-        )
-
-
-    return {
-        "message": "Mirai full reset completed"
     }

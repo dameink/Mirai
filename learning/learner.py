@@ -1,6 +1,7 @@
 from .level import LevelSystem
 from learning.learning_memory import LearningMemory
 from learning.storage import MemoryStorage
+from learning.controller import LearningController
 
 
 class Learner:
@@ -20,8 +21,10 @@ class Learner:
     def __init__(
         self,
         native_language="",
-        learning_language="English"
+        learning_language="English",
+        user_id=None
     ):
+        self.user_id = user_id
         # =================================================
         # IDENTITY
         # =================================================
@@ -87,7 +90,7 @@ class Learner:
         # =================================================
 
         self.learning_memory = LearningMemory()
-        self.memory_storage = MemoryStorage()
+        self.memory_storage = MemoryStorage(user_id=self.user_id)
 
         saved_memory = self.memory_storage.load()
 
@@ -720,6 +723,51 @@ class Learner:
                     value
                 )
             )
+    # =================================================
+    # RESET
+    # =================================================
+
+    def reset(self):
+        """
+        Reset the learner to the initial state
+        and remove persistent learning memory.
+        """
+
+        self.identity = {
+            "native_language": "",
+            "learning_language": "English",
+            "level": "Unknown",
+        }
+
+        self.goals = {
+            "primary": None,
+            "secondary": [],
+        }
+
+        self.learning_preferences = {
+            "preferred_activity": None,
+            "correction_preference": None,
+            "prefers_conversation": True,
+            "prefers_explanations": True,
+            "likes_corrections": True,
+            "correction_intensity": 50,
+        }
+
+        self.level_system = LevelSystem()
+
+        self.skills = self.create_default_skills()
+
+        self.history = []
+
+        self.motivation = {
+            "consistency": 50,
+            "effort": 50,
+            "engagement": 50,
+        }
+
+        self.learning_memory = LearningMemory()
+
+        self.memory_storage.delete()
 
     # =================================================
     # PROFILE
@@ -758,7 +806,7 @@ class Learner:
 if __name__ == "__main__":
 
     user = Learner(
-        native_language="Russian",
+        native_language="",
         learning_language="English"
     )
 

@@ -1,307 +1,304 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 
-# =====================================
-# TEXT SIMILARITY
-# =====================================
+STOP_WORDS = {
+    "user",
+    "i",
+    "me",
+    "my",
+    "mine",
+    "is",
+    "am",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "do",
+    "does",
+    "did",
+    "dont",
+    "don't",
+    "not",
+    "no",
+    "longer",
+    "changed",
+    "anymore",
+    "any",
+    "the",
+    "a",
+    "an",
+    "to",
+    "of",
+    "and",
+    "or",
+    "but",
+    "for",
+    "with",
+    "in",
+    "on",
+    "at",
+    "from",
+    "that",
+    "this",
+    "it",
+    "likes",
+    "like",
+    "liked",
+    "love",
+    "loves",
+    "loved",
+    "want",
+    "wants",
+    "wanted",
+}
 
+
+def _now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+# ============================================
+# TEXT NORMALIZATION
+# ============================================
 
 def normalize(text):
+    if not text:
+        return set()
 
-    text = text.lower()
+    text = str(text).lower()
 
     text = re.sub(
         r"[^a-z0-9\s]",
-        "",
-        text
+        " ",
+        text,
     )
 
-    return set(
-        text.split()
-    )
+    return set(text.split())
 
 
+# ============================================
+# MEANINGFUL KEYWORDS
+# ============================================
+
+def meaningful_keywords(text):
+    words = normalize(text)
+
+    return {
+        word
+        for word in words
+        if word not in STOP_WORDS
+    }
+
+
+# ============================================
+# TEXT SIMILARITY
+# ============================================
 
 def similarity(a, b):
-
     a_words = normalize(a)
     b_words = normalize(b)
 
     if not a_words or not b_words:
         return 0
 
+    return (
+        len(a_words & b_words)
+        / len(a_words | b_words)
+    )
+
+
+# ============================================
+# TOPIC SIMILARITY
+# ============================================
+
+def topic_similarity(a, b):
+    a_words = meaningful_keywords(a)
+    b_words = meaningful_keywords(b)
+
+    if not a_words or not b_words:
+        return 0
 
     return (
         len(a_words & b_words)
-        /
-        len(a_words | b_words)
+        / len(a_words | b_words)
     )
 
 
+# ============================================
+# DUPLICATE
+# ============================================
 
-# =====================================
-# CHECK DUPLICATE
-# =====================================
-
-
-def is_duplicate(
-        new_memory,
-        old_memory
-):
-
-    return similarity(
-        new_memory["content"],
-        old_memory["content"]
-    ) > 0.6
+def is_duplicate(new_memory, old_memory):
+    return (
+        similarity(
+            new_memory.get("content", ""),
+            old_memory.get("content", ""),
+        )
+        > 0.6
+    )
 
 
+# ============================================
+# CONFLICT
+# ============================================
 
+def is_conflict(new_memory, old_memory):
+    """
+    Conservative conflict detection.
 
+    A conflict requires:
+    1. Same category.
+    2. Actual topic overlap.
+    3. Sufficient topic similarity.
 
-# =====================================
-# CHECK CONFLICT
-# =====================================
+    Negative words alone can never create a conflict.
+    """
 
-
-def is_conflict(
-        new_memory,
-        old_memory
-):
-
-
-    if new_memory.get("category") != old_memory.get("category"):
-
-        return False
-
-
-
-    new_text = new_memory["content"].lower()
-
-    old_text = old_memory["content"].lower()
-
-
-
-    # goals / preferences change
-
-
-    negative_words = [
-        "don't",
-        "not",
-        "no longer",
-        "changed",
-        "anymore"
-    ]
-
-
-    for word in negative_words:
-
-        if word in new_text:
-
-            return True
-
-
+    new_category = new_memory.get("category")
+    old_category = old_memory.get("category")
 
     if (
-        "want to become" in new_text
-        and
-        "want to become" in old_text
+        new_category
+        and old_category
+        and new_category != old_category
     ):
+        return False
 
-        if similarity(
-            new_text,
-            old_text
-        ) < 0.4:
+    new_text = new_memory.get("content", "")
+    old_text = old_memory.get("content", "")
 
-            return True
+    if not new_text or not old_text:
+        return False
+
+    new_topics = meaningful_keywords(new_text)
+    old_topics = meaningful_keywords(old_text)
+
+    if not new_topics or not old_topics:
+        return False
+
+    overlap = new_topics & old_topics
+
+    if not overlap:
+        return False
+
+    topic_score = topic_similarity(
+        new_text,
+        old_text,
+    )
+
+    if topic_score < 0.4:
+        return False
+
+    return True
 
 
-
-    return False
-
-
-
-
-
-# =====================================
-# REINFORCE MEMORY
-# =====================================
-
+# ============================================
+# REINFORCE
+# ============================================
 
 def reinforce_memory(memory):
-
-
     memory["confidence"] = min(
-
         100,
-
-        memory.get(
-            "confidence",
-            50
-        )
-        +
-        10
-
+        memory.get("confidence", 50) + 10,
     )
-
 
     memory["recall_count"] = (
-
-        memory.get(
-            "recall_count",
-            0
-        )
-        +
-        1
-
+        memory.get("recall_count", 0) + 1
     )
 
+    memory["last_recalled"] = _now()
 
-    memory["last_recalled"] = (
-        datetime.now()
-        .isoformat()
+    return memory
+
+
+# ============================================
+# UPDATE
+# ============================================
+
+def update_memory(old, new):
+    old["content"] = new.get(
+        "content",
+        old.get("content", ""),
     )
 
-
-
-
-
-# =====================================
-# UPDATE MEMORY
-# =====================================
-
-
-def update_memory(
-        old,
-        new
-):
-
-
-    old["previous_versions"] = (
-        old.get(
-            "previous_versions",
-            []
-        )
+    old["importance"] = new.get(
+        "importance",
+        old.get("importance", 50),
     )
 
+    old["category"] = new.get(
+        "category",
+        old.get("category", "general"),
+    )
 
-    old["previous_versions"].append({
-
-        "content":
-        old["content"],
-
-        "date":
-        datetime.now()
-        .isoformat()
-
-    })
-
-
-
-    old["content"] = new["content"]
-
+    old["emotion"] = new.get(
+        "emotion",
+        old.get("emotion"),
+    )
 
     old["confidence"] = min(
-
         100,
-
-        old.get(
-            "confidence",
-            50
-        )
-        +
-        15
-
+        old.get("confidence", 50) + 15,
     )
 
+    old["last_updated"] = _now()
 
-    old["last_updated"] = (
-        datetime.now()
-        .isoformat()
-    )
+    return old
 
 
-
-
-
-# =====================================
+# ============================================
 # MAIN MERGE
-# =====================================
+# ============================================
 
-
-def merge_memory(
-        new_memory,
-        memories
-):
-
+def merge_memory(new_memory, memories):
 
     for old_memory in memories:
 
-                # conflict
+        # ------------------------------------
+        # CONFLICT
+        # ------------------------------------
 
         if is_conflict(
             new_memory,
-            old_memory
+            old_memory,
         ):
-
-
-            update_memory(
+            updated = update_memory(
                 old_memory,
-                new_memory
+                new_memory,
             )
 
-
             return {
-
-                "action":
-                "updated",
-
-                "memory":
-                old_memory
-
+                "action": "updated",
+                "memory": updated,
             }
 
-
-        # duplicate
+        # ------------------------------------
+        # DUPLICATE
+        # ------------------------------------
 
         if is_duplicate(
             new_memory,
-            old_memory
+            old_memory,
         ):
-
-
-            reinforce_memory(
-                old_memory
+            reinforced = reinforce_memory(
+                old_memory,
             )
 
-
             return {
-
-                "action":
-                "reinforced",
-
-                "memory":
-                old_memory
-
+                "action": "reinforced",
+                "memory": reinforced,
             }
 
+    # ----------------------------------------
+    # NEW
+    # ----------------------------------------
 
-
-
-
-    # completely new
-
-    memories.append(
-        new_memory
-    )
-
+    memories.append(new_memory)
 
     return {
-
-        "action":
-        "created",
-
-        "memory":
-        new_memory
-
+        "action": "created",
+        "memory": new_memory,
     }

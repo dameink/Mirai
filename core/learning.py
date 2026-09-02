@@ -3,17 +3,17 @@ from core.learning_bridge import LearningBridge
 from core.learning_context import LearningContext
 
 
-learner = Learner(
-    native_language="Russian",
-    learning_language="English"
-)
+def create_learning_context(user_id):
+    learner = Learner(
+        native_language="Russian",
+        learning_language="English",
+        user_id=user_id
+    )
 
+    bridge = LearningBridge(
+        learner
+    )
 
-bridge = LearningBridge(
-    learner
-)
-
-
-learning_context = LearningContext(
-    bridge
-)
+    return LearningContext(
+        bridge
+    )

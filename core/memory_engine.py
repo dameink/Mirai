@@ -2,498 +2,128 @@ from core.memory import (
     remember_semantic,
     remember_event,
     remember_emotion,
-    update_relationship
 )
 
 
-
 MEMORY_RULES = {
-
-
-    # ==========================
-    # SEMANTIC MEMORY
-    # Long-term facts about user
-    # ==========================
-
-
+    "greeting": {
+        "memory_type": "episodic",
+        "importance": 10,
+    },
+    "compliment": {
+        "memory_type": "emotional",
+        "importance": 30,
+        "category": "positive",
+    },
+    "insult": {
+        "memory_type": "emotional",
+        "importance": 40,
+        "category": "negative",
+    },
+    "personal_share": {
+        "memory_type": "semantic",
+        "importance": 60,
+        "category": "personal",
+    },
     "achievement": {
-
         "memory_type": "semantic",
-
-        "importance": 80,
-
-        "category": "achievement"
-
-    },
-
-
-    "preference": {
-
-        "memory_type": "semantic",
-
-        "importance": 60,
-
-        "category": "interest"
-
-    },
-
-
-    "dislike": {
-
-        "memory_type": "semantic",
-
-        "importance": 60,
-
-        "category": "dislike"
-
-    },
-
-
-    "introduction": {
-
-        "memory_type": "semantic",
-
-        "importance": 100,
-
-        "category": "identity"
-
-    },
-
-
-    "skill": {
-
-        "memory_type": "semantic",
-
         "importance": 70,
-
-        "category": "skill"
-
+        "category": "achievement",
     },
-
-
-    "goal": {
-
-        "memory_type": "semantic",
-
-        "importance": 90,
-
-        "category": "goal"
-
+    "sadness": {
+        "memory_type": "emotional",
+        "importance": 50,
+        "category": "negative",
     },
-
-
-    "life_event": {
-
-        "memory_type": "semantic",
-
-        "importance": 85,
-
-        "category": "life"
-
+    "anger": {
+        "memory_type": "emotional",
+        "importance": 60,
+        "category": "negative",
     },
-
-
-
-    # ==========================
-    # EPISODIC MEMORY
-    # Specific moments
-    # ==========================
-
-
+    "gratitude": {
+        "memory_type": "emotional",
+        "importance": 40,
+        "category": "positive",
+    },
     "deep_conversation": {
-
         "memory_type": "episodic",
-
-        "importance": 90
-
+        "importance": 70,
     },
-
-
-    "first_meeting": {
-
-        "memory_type": "episodic",
-
-        "importance": 100
-
-    },
-
-
-    "important_day": {
-
-        "memory_type": "episodic",
-
-        "importance": 90
-
-    },
-
-
-    "milestone": {
-
-        "memory_type": "semantic",
-
-        "importance": 85,
-
-        "category": "project"
-
-    },
-
-
-    "shared_joke": {
-
-        "memory_type": "episodic",
-
-        "importance": 50
-
-    },
-
-
-    "conflict": {
-
-        "memory_type": "episodic",
-
-        "importance": 90
-
-    },
-
-
-    "apology": {
-
-        "memory_type": "episodic",
-
-        "importance": 80
-
-    },
-
-
-
-    # ==========================
-    # EMOTIONAL MEMORY
-    # Emotional patterns
-    # ==========================
-
-
-    "emotional_event": {
-
-        "memory_type": "emotional",
-
-        "importance": 80
-
-    },
-
-
-    "stress": {
-
-        "memory_type": "emotional",
-
-        "importance": 75
-
-    },
-
-
-    "happiness": {
-
-        "memory_type": "emotional",
-
-        "importance": 70
-
-    },
-
-
-    "fear": {
-
-        "memory_type": "emotional",
-
-        "importance": 80
-
-    },
-
-
-    "frustration": {
-
-        "memory_type": "emotional",
-
-        "importance": 75
-
-    },
-
-
-    "confidence_boost": {
-
-        "memory_type": "emotional",
-
-        "importance": 70
-
-    },
-
-
-
-    # ==========================
-    # RELATIONSHIP MEMORY
-    # Mirai + user relationship
-    # ==========================
-
-
-    "positive_interaction": {
-
-        "memory_type": "relationship",
-
-        "trust": 1,
-
-        "affection": 2,
-
-        "familiarity": 1
-
-    },
-
-
-    "important_interaction": {
-
-        "memory_type": "relationship",
-
-        "trust": 3,
-
-        "affection": 3,
-
-        "familiarity": 2
-
-    },
-
-
-    "support_received": {
-
-        "memory_type": "relationship",
-
-        "trust": 5,
-
-        "affection": 4,
-
-        "familiarity": 2
-
-    },
-
-
-    "personal_sharing": {
-
-        "memory_type": "relationship",
-
-        "trust": 7,
-
-        "affection": 5,
-
-        "familiarity": 3
-
-    },
-
-
-    "user_compliment": {
-
-        "memory_type": "relationship",
-
-        "trust": 1,
-
-        "affection": 4,
-
-        "familiarity": 1
-
-    },
-
-
-    "mirai_helped_user": {
-
-        "memory_type": "relationship",
-
-        "trust": 5,
-
-        "affection": 3,
-
-        "familiarity": 2
-
-    }
-
 }
 
 
-# ==========================
-# CHECK MEMORY TYPE
-# ==========================
-
-
 def should_remember(event):
-
     return event in MEMORY_RULES
 
 
-
-
-
-# ==========================
-# SAVE MEMORY
-# ==========================
-
-
 def save_event_memory(
-        event,
-        message,
-        emotion=None,
-        intensity=50
+    event,
+    message,
+    emotion=None,
+    intensity=50,
+    user_id=None,
+    db=None
 ):
+    """
+    Save an event into the appropriate memory system.
 
+    Memory storage is user-scoped.
+
+    This function ONLY stores memory.
+    It must NOT mutate emotion or relationship state.
+    Those mutations belong to the social/emotion/relationship systems.
+    """
 
     if not should_remember(event):
-
         return False
 
-
-
     rule = MEMORY_RULES[event]
-
-
     memory_type = rule["memory_type"]
-
-
-
-    # ----------------------
-    # SEMANTIC MEMORY
-    # ----------------------
+    importance = rule["importance"]
 
     if memory_type == "semantic":
-
-
         remember_semantic(
-
             message,
-
-            rule["importance"],
-
-            rule["category"],
-
-            emotion
-
+            importance=importance,
+            category=rule.get("category", "general"),
+            emotion=emotion,
+            user_id=user_id,
+            db=db,
         )
-
-
-
-    # ----------------------
-    # EPISODIC MEMORY
-    # ----------------------
 
     elif memory_type == "episodic":
-
-
         remember_event(
-
             message,
-
-            rule["importance"]
-
+            importance=importance,
+            user_id=user_id,
+            db=db,
         )
-
-
-
-    # ----------------------
-    # EMOTIONAL MEMORY
-    # ----------------------
 
     elif memory_type == "emotional":
-
-
         remember_emotion(
-
-            emotion if emotion else "unknown",
-
+            emotion or "unknown",
             message,
-
-            intensity
-
+            intensity,
+            user_id=user_id,
+            db=db,
         )
-
-
-
-    # ----------------------
-    # RELATIONSHIP MEMORY
-    # ----------------------
 
     elif memory_type == "relationship":
-
-
-        update_relationship(
-
-            trust=rule.get(
-                "trust",
-                0
-            ),
-
-            affection=rule.get(
-                "affection",
-                0
-            ),
-
-            familiarity=rule.get(
-                "familiarity",
-                0
-            )
-
+        # Relationship memory is stored as an event.
+        # Actual relationship state mutation is handled
+        # exclusively by relationship_engine.py.
+        remember_event(
+            message,
+            importance=importance,
+            user_id=user_id,
         )
 
-
+    else:
+        return False
 
     print(
-        "Memory saved:",
-        event,
-        message
+        f"Memory saved: event={event}, "
+        f"type={memory_type}, user_id={user_id}"
     )
-
 
     return True
-
-
-
-
-
-# ==========================
-# GET MEMORY IMPORTANCE
-# ==========================
-
-
-def get_memory_importance(event):
-
-
-    if event not in MEMORY_RULES:
-
-        return 0
-
-
-    return MEMORY_RULES[event].get(
-        "importance",
-        0
-    )
-
-
-
-
-
-# ==========================
-# ADD NEW MEMORY RULE
-# ==========================
-
-
-def add_memory_rule(
-        name,
-        memory_type,
-        importance=50,
-        category=None
-):
-
-
-    MEMORY_RULES[name] = {
-
-
-        "memory_type": memory_type,
-
-
-        "importance": importance,
-
-
-        "category": category
-
-    }

@@ -1,44 +1,46 @@
-from core.memory import get_memory, save_memory
+from core.memory import get_memory
+from core.user_state import get_user_file
+
 from datetime import datetime
 import json
 import os
-
 
 
 # =====================================
 # PROFILE STORAGE
 # =====================================
 
-
-PROFILE_FILE = "memory/profile.json"
-
+LEGACY_PROFILE_FILE = "memory/profile.json"
 
 
-def load_profile():
+def _profile_file(user_id=None):
+    if user_id:
+        return get_user_file(
+            user_id,
+            "profile.json"
+        )
 
-    if not os.path.exists(PROFILE_FILE):
+    return LEGACY_PROFILE_FILE
+
+
+def load_profile(user_id=None):
+
+    profile_file = _profile_file(user_id)
+
+    if not os.path.exists(profile_file):
 
         return {
-
             "identity": {},
-
             "interests": [],
-
             "goals": [],
-
             "traits": [],
-
             "learning_style": {},
-
             "communication_style": {},
-
             "updated": None
-
         }
 
-
     with open(
-        PROFILE_FILE,
+        profile_file,
         "r",
         encoding="utf-8"
     ) as f:
@@ -46,25 +48,30 @@ def load_profile():
         return json.load(f)
 
 
+def save_profile(
+    profile,
+    user_id=None
+):
 
+    profile_file = _profile_file(user_id)
 
-
-def save_profile(profile):
-
-    os.makedirs(
-        "memory",
-        exist_ok=True
+    directory = os.path.dirname(
+        profile_file
     )
 
+    if directory:
+        os.makedirs(
+            directory,
+            exist_ok=True
+        )
 
     profile["updated"] = (
         datetime.now()
         .isoformat()
     )
 
-
     with open(
-        PROFILE_FILE,
+        profile_file,
         "w",
         encoding="utf-8"
     ) as f:
@@ -77,27 +84,20 @@ def save_profile(profile):
         )
 
 
-
-
-
 # =====================================
 # ADD OR UPDATE ITEM
 # =====================================
 
-
 def update_score(
-        collection,
-        name,
-        evidence,
-        amount=10
+    collection,
+    name,
+    evidence,
+    amount=10
 ):
-
 
     for item in collection:
 
-
         if item["name"] == name:
-
 
             item["confidence"] += amount
 
@@ -106,15 +106,11 @@ def update_score(
                 item["confidence"]
             )
 
-
             item["evidence"].append(
                 evidence
             )
 
-
             return
-
-
 
     collection.append({
 
@@ -122,47 +118,40 @@ def update_score(
 
         "confidence": 50,
 
-        "evidence":[
+        "evidence": [
             evidence
         ]
 
     })
 
 
-
-
-
 # =====================================
 # INTEREST ANALYSIS
 # =====================================
 
-
 def analyze_interests(
-        memories,
-        profile
+    memories,
+    profile
 ):
 
-
-    facts = memories["semantic"]["facts"]
-
+    facts = memories[
+        "semantic"
+    ][
+        "facts"
+    ]
 
     for fact in facts:
-
 
         category = fact.get(
             "category"
         )
-
 
         content = fact.get(
             "content",
             ""
         ).lower()
 
-
-
         if category == "interest":
-
 
             update_score(
 
@@ -178,30 +167,26 @@ def analyze_interests(
             )
 
 
-
-
-
 # =====================================
 # GOAL ANALYSIS
 # =====================================
 
-
 def analyze_goals(
-        memories,
-        profile
+    memories,
+    profile
 ):
 
-
-    facts = memories["semantic"]["facts"]
-
+    facts = memories[
+        "semantic"
+    ][
+        "facts"
+    ]
 
     for fact in facts:
-
 
         if fact.get(
             "category"
         ) == "goal":
-
 
             update_score(
 
@@ -216,115 +201,88 @@ def analyze_goals(
             )
 
 
-
-
-
 # =====================================
 # PERSONALITY INFERENCE
 # =====================================
 
-
 def analyze_traits(
-        memories,
-        profile
+    memories,
+    profile
 ):
-
 
     all_text = ""
 
-
-    for item in memories["semantic"]["facts"]:
-
-        all_text += (
-            item["content"]
-            .lower()
-            +
-            " "
-        )
-
-
-    for item in memories["episodic"]["events"]:
+    for item in memories[
+        "semantic"
+    ][
+        "facts"
+    ]:
 
         all_text += (
             item["content"]
             .lower()
-            +
-            " "
+            + " "
         )
 
+    for item in memories[
+        "episodic"
+    ][
+        "events"
+    ]:
 
+        all_text += (
+            item["content"]
+            .lower()
+            + " "
+        )
 
     rules = {
 
-
-        "ambitious":[
-
+        "ambitious": [
             "goal",
             "want to become",
             "building",
             "project"
-
         ],
 
-
-        "curious":[
-
+        "curious": [
             "learn",
             "physics",
             "science",
             "research"
-
         ],
 
-
-        "persistent":[
-
+        "persistent": [
             "finished",
             "passed",
             "completed"
-
         ],
 
-
-        "creative":[
-
+        "creative": [
             "create",
             "building",
             "application"
-
         ]
 
     }
 
-
-
-
     for trait, keywords in rules.items():
-
 
         score = 0
 
-
-        evidence=[]
-
+        evidence = []
 
         for word in keywords:
 
-
             if word in all_text:
 
-
                 score += 20
-
 
                 evidence.append(
                     word
                 )
 
-
-
         if score > 0:
-
 
             update_score(
 
@@ -339,119 +297,102 @@ def analyze_traits(
             )
 
 
-
-
-
 # =====================================
 # LEARNING STYLE
 # =====================================
 
-
 def analyze_learning_style(
-        memories,
-        profile
+    memories,
+    profile
 ):
 
-
-    events = memories["episodic"]["events"]
-
+    events = memories[
+        "episodic"
+    ][
+        "events"
+    ]
 
     for event in events:
 
+        text = event[
+            "content"
+        ].lower()
 
-        text = event["content"].lower()
+        if (
+            "study" in text
+            or
+            "learn" in text
+        ):
 
-
-        if "study" in text or "learn" in text:
-
-
-            profile["learning_style"][
-
+            profile[
+                "learning_style"
+            ][
                 "active_learning"
-
             ] = True
-
-
-
 
 
 # =====================================
 # COMMUNICATION STYLE
 # =====================================
 
-
 def analyze_communication(
-        memories,
-        profile
+    memories,
+    profile
 ):
 
+    profile[
+        "communication_style"
+    ] = {
 
-    profile["communication_style"] = {
+        "prefers_detailed_answers": True,
 
-
-        "prefers_detailed_answers":
-
-        True,
-
-
-        "likes_deep_discussion":
-
-        True
+        "likes_deep_discussion": True
 
     }
-
-
-
 
 
 # =====================================
 # MAIN PROFILE UPDATE
 # =====================================
 
+def update_profile(user_id=None):
 
-def update_profile():
+    memories = get_memory(
+        user_id=user_id
+    )
 
-
-    memories = get_memory()
-
-
-    profile = load_profile()
-
-
+    profile = load_profile(
+        user_id=user_id
+    )
 
     analyze_interests(
         memories,
         profile
     )
 
-
     analyze_goals(
         memories,
         profile
     )
-
 
     analyze_traits(
         memories,
         profile
     )
 
-
     analyze_learning_style(
         memories,
         profile
     )
-
 
     analyze_communication(
         memories,
         profile
     )
 
-
     save_profile(
-        profile
+        profile,
+        user_id=user_id
     )
-
 
     return profile

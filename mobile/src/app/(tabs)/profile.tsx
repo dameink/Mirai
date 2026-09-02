@@ -19,38 +19,29 @@ type LearningProfile = {
   learner?: {
     skills?: Record<string, Record<string, Skill>>;
   };
-
   analysis?: {
     goal?: {
       goal?: string;
     };
-
     state?: {
       confidence?: number;
       [key: string]: unknown;
     };
-
     difficulty?: {
       difficulty?: string;
     };
-
     mode?: {
       mode?: string;
     };
   };
-
   sessions?: unknown[];
-
   strategy?: {
     goal?: string;
   };
 };
 
 function clamp(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
+  if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, value));
 }
 
@@ -74,9 +65,7 @@ function getProgress(profile: LearningProfile): number {
   const values: number[] = [];
 
   Object.values(skills).forEach((category) => {
-    if (!category || typeof category !== "object") {
-      return;
-    }
+    if (!category || typeof category !== "object") return;
 
     Object.values(category).forEach((skill) => {
       if (
@@ -92,9 +81,7 @@ function getProgress(profile: LearningProfile): number {
     });
   });
 
-  if (values.length === 0) {
-    return 0;
-  }
+  if (values.length === 0) return 0;
 
   const average =
     values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -137,15 +124,11 @@ function getLevelProgress(progress: number, level: string): number {
     C2: [90, 100],
   };
 
-  if (level === "C2") {
-    return 100;
-  }
+  if (level === "C2") return 100;
 
   const [start, end] = ranges[level] ?? [0, 100];
 
-  if (end <= start) {
-    return 0;
-  }
+  if (end <= start) return 0;
 
   return clamp(
     Math.round(((clamp(progress) - start) / (end - start)) * 100)
@@ -163,9 +146,7 @@ function getConfidenceLabel(confidence: number): string {
 }
 
 function getDifficultyLabel(value: unknown): string {
-  if (!value) {
-    return "Adaptive";
-  }
+  if (!value) return "Adaptive";
 
   const formatted = formatTitle(value);
 
@@ -173,9 +154,7 @@ function getDifficultyLabel(value: unknown): string {
 }
 
 function getModeLabel(value: unknown): string {
-  if (!value) {
-    return "Balanced";
-  }
+  if (!value) return "Balanced";
 
   const formatted = formatTitle(value);
 
@@ -195,9 +174,7 @@ export default function ProfileScreen() {
       const response = await fetch(`${API_URL}/learning/profile`);
 
       if (!response.ok) {
-        throw new Error(
-          `Request failed with status ${response.status}`
-        );
+        throw new Error(`Request failed with status ${response.status}`);
       }
 
       const data = (await response.json()) as LearningProfile;
@@ -207,9 +184,7 @@ export default function ProfileScreen() {
       console.log("Failed to load profile:", error);
 
       setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load profile"
+        error instanceof Error ? error.message : "Failed to load profile"
       );
     } finally {
       setLoading(false);
@@ -221,14 +196,9 @@ export default function ProfileScreen() {
   }, []);
 
   const progress = profile ? getProgress(profile) : 0;
-
   const level = getCEFR(progress);
   const nextLevel = getNextLevel(level);
-
-  const levelProgress = getLevelProgress(
-    progress,
-    level
-  );
+  const levelProgress = getLevelProgress(progress, level);
 
   const goal =
     profile?.analysis?.goal?.goal ??
@@ -245,16 +215,13 @@ export default function ProfileScreen() {
       : 0
   );
 
-  const confidenceLabel =
-    getConfidenceLabel(confidence);
+  const confidenceLabel = getConfidenceLabel(confidence);
 
   const difficulty = getDifficultyLabel(
     profile?.analysis?.difficulty?.difficulty
   );
 
-  const mode = getModeLabel(
-    profile?.analysis?.mode?.mode
-  );
+  const mode = getModeLabel(profile?.analysis?.mode?.mode);
 
   return (
     <SectionScreen
@@ -277,33 +244,23 @@ export default function ProfileScreen() {
             Couldn't load profile
           </Text>
 
-          <Text style={styles.errorText}>
-            {error}
-          </Text>
+          <Text style={styles.errorText}>{error}</Text>
 
           <Pressable
             style={styles.retryButton}
             onPress={loadProfile}
           >
-            <Text style={styles.retryText}>
-              Try again
-            </Text>
+            <Text style={styles.retryText}>Try again</Text>
           </Pressable>
         </View>
       ) : (
         <>
-          {/* Profile */}
-
           <View style={styles.profileCard}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                👤
-              </Text>
+              <Text style={styles.avatarText}>👤</Text>
             </View>
 
-            <Text style={styles.name}>
-              You
-            </Text>
+            <Text style={styles.name}>You</Text>
 
             <Text style={styles.subtitle}>
               English learner
@@ -316,11 +273,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Level */}
-
-          <Text style={styles.sectionTitle}>
-            Your level
-          </Text>
+          <Text style={styles.sectionTitle}>Your level</Text>
 
           <View style={styles.levelCard}>
             <View style={styles.levelHeader}>
@@ -329,15 +282,11 @@ export default function ProfileScreen() {
                   CEFR LEVEL
                 </Text>
 
-                <Text style={styles.level}>
-                  {level}
-                </Text>
+                <Text style={styles.level}>{level}</Text>
               </View>
 
               <View style={styles.levelFlower}>
-                <Text style={styles.flower}>
-                  🌸
-                </Text>
+                <Text style={styles.flower}>🌸</Text>
               </View>
             </View>
 
@@ -371,17 +320,13 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          {/* Stats */}
-
           <Text style={styles.sectionTitle}>
             Your progress
           </Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statIcon}>
-                📚
-              </Text>
+              <Text style={styles.statIcon}>📚</Text>
 
               <Text style={styles.statValue}>
                 {sessions}
@@ -398,9 +343,7 @@ export default function ProfileScreen() {
                 styles.statCardSecond,
               ]}
             >
-              <Text style={styles.statIcon}>
-                🌸
-              </Text>
+              <Text style={styles.statIcon}>🌸</Text>
 
               <Text style={styles.statValue}>
                 {progress}%
@@ -411,8 +354,6 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
-
-          {/* Learning state */}
 
           <Text style={styles.sectionTitle}>
             Learning state
@@ -452,8 +393,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          {/* Learning preferences */}
-
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceCard}>
               <Text style={styles.preferenceIcon}>
@@ -489,17 +428,13 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Goal */}
-
           <Text style={styles.sectionTitle}>
             Current goal
           </Text>
 
           <View style={styles.goalCard}>
             <View style={styles.goalIcon}>
-              <Text style={styles.goalEmoji}>
-                🎯
-              </Text>
+              <Text style={styles.goalEmoji}>🎯</Text>
             </View>
 
             <View style={styles.goalInfo}>
@@ -518,11 +453,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Settings */}
-
-          <Text style={styles.sectionTitle}>
-            App
-          </Text>
+          <Text style={styles.sectionTitle}>App</Text>
 
           <Pressable
             style={({ pressed }) => [
@@ -532,9 +463,7 @@ export default function ProfileScreen() {
             onPress={() => router.push("./settings")}
           >
             <View style={styles.settingsIcon}>
-              <Text style={styles.settingsEmoji}>
-                ⚙️
-              </Text>
+              <Text style={styles.settingsEmoji}>⚙️</Text>
             </View>
 
             <View style={styles.settingsInfo}>
@@ -547,9 +476,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
 
-            <Text style={styles.arrow}>
-              ›
-            </Text>
+            <Text style={styles.arrow}>›</Text>
           </Pressable>
         </>
       )}

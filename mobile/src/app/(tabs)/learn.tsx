@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { SectionScreen } from "../../components/section-screen";
 import { API_URL } from "../../constants/api";
 
@@ -68,6 +69,10 @@ type SkillItem = {
   trend: number;
 };
 
+function clamp(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
 function formatTitle(value: unknown): string {
   if (value === null || value === undefined || value === "") {
     return "Learning";
@@ -76,10 +81,6 @@ function formatTitle(value: unknown): string {
   return String(value)
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function clamp(value: number): number {
-  return Math.max(0, Math.min(100, value));
 }
 
 function getSkillList(profile: LearningProfile): SkillItem[] {
@@ -92,63 +93,65 @@ function getSkillList(profile: LearningProfile): SkillItem[] {
   const result: SkillItem[] = [];
 
   Object.entries(skills).forEach(([category, categorySkills]) => {
-    Object.entries(categorySkills || {}).forEach(([skillName, skill]) => {
-      if (
-        typeof skill?.value === "number" &&
-        typeof skill?.evidence_count === "number" &&
-        skill.evidence_count > 0
-      ) {
-        result.push({
-          category,
-          skill: skillName,
-          value: clamp(skill.value),
-          certainty:
-            typeof skill.certainty === "number"
-              ? clamp(skill.certainty)
-              : 0,
-          evidence: skill.evidence_count,
-          trend:
-            typeof skill.trend === "number"
-              ? skill.trend
-              : 0,
-        });
+    Object.entries(categorySkills || {}).forEach(
+      ([skillName, skill]) => {
+        if (
+          typeof skill?.value === "number" &&
+          typeof skill?.evidence_count === "number" &&
+          skill.evidence_count > 0
+        ) {
+          result.push({
+            category,
+            skill: skillName,
+            value: clamp(skill.value),
+            certainty:
+              typeof skill.certainty === "number"
+                ? clamp(skill.certainty)
+                : 0,
+            evidence: skill.evidence_count,
+            trend:
+              typeof skill.trend === "number"
+                ? skill.trend
+                : 0,
+          });
+        }
       }
-    });
+    );
   });
 
   return result;
 }
 
-function getProgress(skills: SkillItem[]): number {
-  if (skills.length === 0) {
+function getProgress(skills: SkillItem[]) {
+  if (!skills.length) {
     return 0;
   }
 
-  const average =
-    skills.reduce((sum, skill) => sum + skill.value, 0) /
-    skills.length;
-
-  return Math.round(clamp(average));
+  return Math.round(
+    clamp(
+      skills.reduce((sum, skill) => sum + skill.value, 0) /
+        skills.length
+    )
+  );
 }
 
-function getAverageCertainty(skills: SkillItem[]): number {
-  if (skills.length === 0) {
+function getAverageCertainty(skills: SkillItem[]) {
+  if (!skills.length) {
     return 0;
   }
 
-  const average =
+  return Math.round(
     skills.reduce((sum, skill) => sum + skill.certainty, 0) /
-    skills.length;
-
-  return Math.round(average);
+      skills.length
+  );
 }
 
-function getEvidence(skills: SkillItem[]): number {
+function getEvidence(skills: SkillItem[]) {
   return skills.reduce((sum, skill) => sum + skill.evidence, 0);
 }
 
-function getAverageTrend(skills: SkillItem[]): number {
-  if (skills.length === 0) {
+function getAverageTrend(skills: SkillItem[]) {
+  if (!skills.length) {
     return 0;
   }
 
@@ -156,6 +159,30 @@ function getAverageTrend(skills: SkillItem[]): number {
     skills.reduce((sum, skill) => sum + skill.trend, 0) /
     skills.length
   );
+}
+
+function getTrendLabel(trend: number) {
+  if (trend > 1) {
+    return "Improving";
+  }
+
+  if (trend < -1) {
+    return "Needs attention";
+  }
+
+  return "Stable";
+}
+
+function getTrendEmoji(trend: number) {
+  if (trend > 1) {
+    return "↗";
+  }
+
+  if (trend < -1) {
+    return "↘";
+  }
+
+  return "→";
 }
 
 function getCategoryStats(skills: SkillItem[]) {
@@ -197,30 +224,6 @@ function getCategoryStats(skills: SkillItem[]) {
     .sort((a, b) => a.value - b.value);
 }
 
-function getTrendLabel(trend: number): string {
-  if (trend > 1) {
-    return "Improving";
-  }
-
-  if (trend < -1) {
-    return "Needs attention";
-  }
-
-  return "Stable";
-}
-
-function getTrendEmoji(trend: number): string {
-  if (trend > 1) {
-    return "↗";
-  }
-
-  if (trend < -1) {
-    return "↘";
-  }
-
-  return "→";
-}
-
 export default function LearnScreen() {
   const [profile, setProfile] =
     useState<LearningProfile | null>(null);
@@ -231,24 +234,37 @@ export default function LearnScreen() {
   const [showCategories, setShowCategories] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadLearning = async () => {
+  const loadLearning = useCallback(async () => {
     try {
       setError(null);
 
-      const response = await fetch(
-        `${API_URL}/learning/profile`
-      );
+      const controller = new AbortController();
 
-      if (!response.ok) {
-        throw new Error(
-          `Request failed with status ${response.status}`
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, 10000);
+
+      try {
+        const response = await fetch(
+          `${API_URL}/learning/profile`,
+          {
+            signal: controller.signal,
+          }
         );
+
+        if (!response.ok) {
+          throw new Error(
+            `Request failed with status ${response.status}`
+          );
+        }
+
+        const data =
+          (await response.json()) as LearningProfile;
+
+        setProfile(data);
+      } finally {
+        clearTimeout(timeout);
       }
-
-      const data =
-        (await response.json()) as LearningProfile;
-
-      setProfile(data);
     } catch (error) {
       console.log(
         "Failed to load learning profile:",
@@ -256,18 +272,33 @@ export default function LearnScreen() {
       );
 
       setError(
-        error instanceof Error
+        error instanceof DOMException &&
+        error.name === "AbortError"
+          ? "Learning profile request timed out"
+          : error instanceof Error
           ? error.message
           : "Failed to load learning data"
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadLearning();
-  }, []);
+  }, [loadLearning]);
+
+  /*
+   * Важно:
+   * после Chat / Practice пользователь может изменить
+   * learning state. Поэтому при возвращении на экран
+   * профиль снова запрашивается с backend.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      loadLearning();
+    }, [loadLearning])
+  );
 
   const startSession = async () => {
     if (starting) {
@@ -291,12 +322,7 @@ export default function LearnScreen() {
         );
       }
 
-      const data = await response.json();
-
-      console.log(
-        "Learning session started:",
-        data
-      );
+      await response.json();
 
       await loadLearning();
     } catch (error) {
@@ -325,11 +351,10 @@ export default function LearnScreen() {
   const evidence = getEvidence(skills);
   const averageTrend = getAverageTrend(skills);
 
-  const categories = getCategoryStats(skills);
-
-  const visibleSkills = showAllSkills
-    ? skills
-    : skills.slice(0, 4);
+  const categories = useMemo(
+    () => getCategoryStats(skills),
+    [skills]
+  );
 
   const analysis = profile?.analysis;
 
@@ -357,8 +382,15 @@ export default function LearnScreen() {
   const weakestSkill =
     analysis?.state?.weakest_skill;
 
-  const learningTrend = getTrendLabel(averageTrend);
-  const trendEmoji = getTrendEmoji(averageTrend);
+  const learningTrend =
+    getTrendLabel(averageTrend);
+
+  const trendEmoji =
+    getTrendEmoji(averageTrend);
+
+  const visibleSkills = showAllSkills
+    ? skills
+    : skills.slice(0, 4);
 
   return (
     <SectionScreen
@@ -424,9 +456,7 @@ export default function LearnScreen() {
               <View
                 style={[
                   styles.heroProgress,
-                  {
-                    width: `${progress}%`,
-                  },
+                  { width: `${progress}%` },
                 ]}
               />
             </View>

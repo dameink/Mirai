@@ -11,7 +11,7 @@ from core.response_plan import create_response_plan
 # =====================================
 
 
-def think(message):
+def think(message, user_id=None):
 
 
     # ===============================
@@ -19,7 +19,7 @@ def think(message):
     # ===============================
 
     analysis = analyze_message(
-        message
+        message, user_id=user_id
     )
 
 
@@ -27,7 +27,7 @@ def think(message):
     # 2. GET MIRAI INTERNAL STATE
     # ===============================
 
-    state = get_mirai_state()
+    state = get_mirai_state(user_id=user_id)
 
 
 
@@ -36,7 +36,7 @@ def think(message):
     # ===============================
 
     decision = make_decision(
-        message
+        message, analysis, user_id=user_id
     )
 
 

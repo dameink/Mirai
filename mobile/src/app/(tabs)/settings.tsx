@@ -1,24 +1,287 @@
 import { router } from "expo-router";
 import {
   Alert,
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from "react-native";
-import { useState } from "react";
+import { useEffect, useRef } from "react";
+import { API_URL } from "../../constants/api";
+import { useSettings } from "../../../context/settings-context";
 
-type Appearance = "System" | "Light" | "Dark";
+export type Mode = "Auto" | "Casual" | "Learning";
+
+const MODES: {
+  value: Mode;
+  title: string;
+  description: string;
+}[] = [
+  {
+    value: "Auto",
+    title: "Auto",
+    description:
+      "Mirai decides when to chat casually and when to help you learn.",
+  },
+  {
+    value: "Casual",
+    title: "Casual",
+    description:
+      "Focus on natural conversation. Mirai won't constantly turn the chat into a lesson.",
+  },
+  {
+    value: "Learning",
+    title: "Learning",
+    description:
+      "Focus on language practice, corrections, questions, and active learning.",
+  },
+];
+
+function AnimatedRow({
+  children,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animatePress = (pressed: boolean) => {
+    Animated.spring(scale, {
+      toValue: pressed ? 0.985 : 1,
+      useNativeDriver: true,
+      speed: 35,
+      bounciness: 4,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => animatePress(true)}
+        onPressOut={() => animatePress(false)}
+        style={({ pressed }) => [
+          styles.row,
+          pressed && styles.rowPressed,
+        ]}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+function AnimatedModeRow({
+  item,
+  selected,
+  onPress,
+}: {
+  item: (typeof MODES)[number];
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const radioScale = useRef(
+    new Animated.Value(selected ? 1 : 0),
+  ).current;
+  const activeOpacity = useRef(
+    new Animated.Value(selected ? 1 : 0),
+  ).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(radioScale, {
+        toValue: selected ? 1 : 0,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 8,
+      }),
+      Animated.timing(activeOpacity, {
+        toValue: selected ? 1 : 0,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [selected]);
+
+  const animatePress = (pressed: boolean) => {
+    Animated.spring(scale, {
+      toValue: pressed ? 0.985 : 1,
+      useNativeDriver: true,
+      speed: 35,
+      bounciness: 4,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={{
+        transform: [{ scale }],
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => animatePress(true)}
+        onPressOut={() => animatePress(false)}
+        style={[
+          styles.modeRow,
+          selected && styles.modeRowSelected,
+        ]}
+      >
+        <View style={styles.modeRadio}>
+          <Animated.View
+            style={[
+              styles.modeRadioInner,
+              {
+                opacity: radioScale,
+                transform: [
+                  {
+                    scale: radioScale,
+                  },
+                ],
+              },
+            ]}
+          />
+        </View>
+
+        <View style={styles.modeText}>
+          <View style={styles.modeTitleRow}>
+            <Text
+              style={[
+                styles.modeTitle,
+                selected && styles.modeTitleSelected,
+              ]}
+            >
+              {item.title}
+            </Text>
+
+            <Animated.Text
+              style={[
+                styles.activeText,
+                {
+                  opacity: activeOpacity,
+                  transform: [
+                    {
+                      translateX: activeOpacity.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-5, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              ACTIVE
+            </Animated.Text>
+          </View>
+
+          <Text style={styles.modeDescription}>
+            {item.description}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export default function SettingsScreen() {
-  const [notifications, setNotifications] = useState(true);
-  const [dailyReminder, setDailyReminder] = useState(false);
+  const {
+    language,
+    mode,
+    setLanguage,
+    setMode,
+  } = useSettings();
 
-  const [language, setLanguage] = useState("English");
-  const [appearance, setAppearance] =
-    useState<Appearance>("System");
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenTranslate = useRef(
+    new Animated.Value(12),
+  ).current;
+
+  const preferencesOpacity = useRef(
+    new Animated.Value(0),
+  ).current;
+  const preferencesTranslate = useRef(
+    new Animated.Value(12),
+  ).current;
+
+  const miraiOpacity = useRef(
+    new Animated.Value(0),
+  ).current;
+  const miraiTranslate = useRef(
+    new Animated.Value(12),
+  ).current;
+
+  const modesOpacity = useRef(
+    new Animated.Value(0),
+  ).current;
+  const modesTranslate = useRef(
+    new Animated.Value(12),
+  ).current;
+
+  const footerOpacity = useRef(
+    new Animated.Value(0),
+  ).current;
+
+  useEffect(() => {
+    const createEntrance = (
+      opacity: Animated.Value,
+      translate: Animated.Value,
+      delay: number,
+    ) =>
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 400,
+          delay,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translate, {
+          toValue: 0,
+          duration: 400,
+          delay,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]);
+
+    Animated.parallel([
+      createEntrance(
+        screenOpacity,
+        screenTranslate,
+        0,
+      ),
+      createEntrance(
+        preferencesOpacity,
+        preferencesTranslate,
+        80,
+      ),
+      createEntrance(
+        miraiOpacity,
+        miraiTranslate,
+        160,
+      ),
+      createEntrance(
+        modesOpacity,
+        modesTranslate,
+        240,
+      ),
+      Animated.timing(footerOpacity, {
+        toValue: 1,
+        duration: 450,
+        delay: 350,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const chooseLanguage = () => {
     Alert.alert(
@@ -45,22 +308,22 @@ export default function SettingsScreen() {
     );
   };
 
-  const chooseAppearance = () => {
+  const chooseMode = () => {
     Alert.alert(
-      "Appearance",
-      "Choose how Mirai looks.",
+      "Conversation mode",
+      "Choose how Mirai should interact with you.",
       [
         {
-          text: "System",
-          onPress: () => setAppearance("System"),
+          text: "Auto",
+          onPress: () => setMode("Auto"),
         },
         {
-          text: "Light",
-          onPress: () => setAppearance("Light"),
+          text: "Casual",
+          onPress: () => setMode("Casual"),
         },
         {
-          text: "Dark",
-          onPress: () => setAppearance("Dark"),
+          text: "Learning",
+          onPress: () => setMode("Learning"),
         },
         {
           text: "Cancel",
@@ -95,13 +358,84 @@ export default function SettingsScreen() {
         {
           text: "Clear",
           style: "destructive",
-          onPress: () => {
-            // Connect this to the chat storage when the
-            // conversation persistence layer is exposed here.
-            Alert.alert(
-              "Conversation cleared",
-              "Your conversation history has been cleared.",
-            );
+          onPress: async () => {
+            try {
+              const response = await fetch(
+                `${API_URL}/conversation`,
+                {
+                  method: "DELETE",
+                },
+              );
+
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to clear conversation: ${response.status}`,
+                );
+              }
+
+              Alert.alert(
+                "Conversation cleared",
+                "Your conversation history has been cleared.",
+              );
+            } catch (error) {
+              console.error(
+                "Failed to clear conversation:",
+                error,
+              );
+
+              Alert.alert(
+                "Something went wrong",
+                "I couldn't clear the conversation. Please try again.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const resetMirai = () => {
+    Alert.alert(
+      "Reset Mirai?",
+      "This will reset Mirai's conversation and current state. This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const response = await fetch(
+                `${API_URL}/reset`,
+                {
+                  method: "DELETE",
+                },
+              );
+
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to reset Mirai: ${response.status}`,
+                );
+              }
+
+              Alert.alert(
+                "Mirai reset",
+                "Mirai has been reset successfully.",
+              );
+            } catch (error) {
+              console.error(
+                "Failed to reset Mirai:",
+                error,
+              );
+
+              Alert.alert(
+                "Something went wrong",
+                "I couldn't reset Mirai. Please try again.",
+              );
+            }
           },
         },
       ],
@@ -110,8 +444,19 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: screenOpacity,
+            transform: [
+              {
+                translateY: screenTranslate,
+              },
+            ],
+          },
+        ]}
+      >
         <Pressable
           accessibilityLabel="Back"
           accessibilityRole="button"
@@ -128,189 +473,201 @@ export default function SettingsScreen() {
         <Text style={styles.title}>Settings</Text>
 
         <View style={styles.headerSpacer} />
-      </View>
+      </Animated.View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Preferences */}
-        <Text style={styles.sectionLabel}>PREFERENCES</Text>
+        <Animated.View
+          style={{
+            opacity: preferencesOpacity,
+            transform: [
+              {
+                translateY: preferencesTranslate,
+              },
+            ],
+          }}
+        >
+          <Text style={styles.sectionLabel}>
+            PREFERENCES
+          </Text>
 
-        <View style={styles.group}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.row,
-              pressed && styles.rowPressed,
-            ]}
-            onPress={chooseLanguage}
-          >
-            <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>
-                Learning language
-              </Text>
+          <View style={styles.group}>
+            <AnimatedRow onPress={chooseLanguage}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>
+                  Learning language
+                </Text>
 
-              <Text style={styles.rowDescription}>
-                The language you're learning
-              </Text>
-            </View>
+                <Text style={styles.rowDescription}>
+                  The language you're learning
+                </Text>
+              </View>
 
-            <View style={styles.valueContainer}>
-              <Text style={styles.rowValue}>
-                {language}
-              </Text>
+              <View style={styles.valueContainer}>
+                <Text style={styles.rowValue}>
+                  {language}
+                </Text>
+
+                <Text style={styles.arrow}>›</Text>
+              </View>
+            </AnimatedRow>
+
+            <View style={styles.rowBorder} />
+
+            <AnimatedRow onPress={chooseMode}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>
+                  Conversation mode
+                </Text>
+
+                <Text style={styles.rowDescription}>
+                  Control how Mirai interacts with you
+                </Text>
+              </View>
+
+              <View style={styles.valueContainer}>
+                <Text style={styles.rowValue}>
+                  {mode}
+                </Text>
+
+                <Text style={styles.arrow}>›</Text>
+              </View>
+            </AnimatedRow>
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={{
+            opacity: miraiOpacity,
+            transform: [
+              {
+                translateY: miraiTranslate,
+              },
+            ],
+          }}
+        >
+          <Text style={styles.sectionLabel}>
+            MIRAI
+          </Text>
+
+          <View style={styles.group}>
+            <AnimatedRow onPress={showAbout}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>
+                  About Mirai
+                </Text>
+
+                <Text style={styles.rowDescription}>
+                  Learn more about your companion
+                </Text>
+              </View>
 
               <Text style={styles.arrow}>›</Text>
-            </View>
-          </Pressable>
+            </AnimatedRow>
 
-          <View style={styles.rowBorder} />
+            <View style={styles.rowBorder} />
 
-          <View style={styles.row}>
-            <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>
-                Daily reminder
-              </Text>
+            <AnimatedRow onPress={clearConversation}>
+              <View style={styles.rowText}>
+                <Text
+                  style={[
+                    styles.rowLabel,
+                    styles.dangerLabel,
+                  ]}
+                >
+                  Clear conversation
+                </Text>
 
-              <Text style={styles.rowDescription}>
-                Keep your learning rhythm
-              </Text>
-            </View>
+                <Text style={styles.rowDescription}>
+                  Remove your current chat history
+                </Text>
+              </View>
 
-            <Switch
-              value={dailyReminder}
-              onValueChange={setDailyReminder}
-              trackColor={{
-                false: "#E8E2E5",
-                true: "#FFB4CE",
-              }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor="#E8E2E5"
-            />
-          </View>
-
-          <View style={styles.rowBorder} />
-
-          <View style={styles.row}>
-            <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>
-                Notifications
-              </Text>
-
-              <Text style={styles.rowDescription}>
-                Messages and learning updates
-              </Text>
-            </View>
-
-            <Switch
-              value={notifications}
-              onValueChange={setNotifications}
-              trackColor={{
-                false: "#E8E2E5",
-                true: "#FFB4CE",
-              }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor="#E8E2E5"
-            />
-          </View>
-        </View>
-
-        {/* Appearance */}
-        <Text style={styles.sectionLabel}>
-          APPEARANCE
-        </Text>
-
-        <View style={styles.group}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.row,
-              pressed && styles.rowPressed,
-            ]}
-            onPress={chooseAppearance}
-          >
-            <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>
-                Appearance
-              </Text>
-
-              <Text style={styles.rowDescription}>
-                Choose how Mirai looks
-              </Text>
-            </View>
-
-            <View style={styles.valueContainer}>
-              <Text style={styles.rowValue}>
-                {appearance}
-              </Text>
-
-              <Text style={styles.arrow}>›</Text>
-            </View>
-          </Pressable>
-        </View>
-
-        {/* Mirai */}
-        <Text style={styles.sectionLabel}>MIRAI</Text>
-
-        <View style={styles.group}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.row,
-              pressed && styles.rowPressed,
-            ]}
-            onPress={showAbout}
-          >
-            <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>
-                About Mirai
-              </Text>
-
-              <Text style={styles.rowDescription}>
-                Learn more about your companion
-              </Text>
-            </View>
-
-            <Text style={styles.arrow}>›</Text>
-          </Pressable>
-
-          <View style={styles.rowBorder} />
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.row,
-              pressed && styles.rowPressed,
-            ]}
-            onPress={clearConversation}
-          >
-            <View style={styles.rowText}>
               <Text
                 style={[
-                  styles.rowLabel,
-                  styles.dangerLabel,
+                  styles.arrow,
+                  styles.dangerArrow,
                 ]}
               >
-                Clear conversation
+                ›
               </Text>
+            </AnimatedRow>
 
-              <Text style={styles.rowDescription}>
-                Remove your current chat history
+            <View style={styles.rowBorder} />
+
+            <AnimatedRow onPress={resetMirai}>
+              <View style={styles.rowText}>
+                <Text
+                  style={[
+                    styles.rowLabel,
+                    styles.dangerLabel,
+                  ]}
+                >
+                  Reset Mirai
+                </Text>
+
+                <Text style={styles.rowDescription}>
+                  Reset Mirai's current state
+                </Text>
+              </View>
+
+              <Text
+                style={[
+                  styles.arrow,
+                  styles.dangerArrow,
+                ]}
+              >
+                ›
               </Text>
-            </View>
+            </AnimatedRow>
+          </View>
+        </Animated.View>
 
-            <Text
-              style={[
-                styles.arrow,
-                styles.dangerArrow,
-              ]}
-            >
-              ›
-            </Text>
-          </Pressable>
-        </View>
+        <Animated.View
+          style={{
+            opacity: modesOpacity,
+            transform: [
+              {
+                translateY: modesTranslate,
+              },
+            ],
+          }}
+        >
+          <Text style={styles.sectionLabel}>
+            MODES
+          </Text>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerFlower}>🌸</Text>
+          <View style={styles.modeGroup}>
+            {MODES.map((item, index) => (
+              <View key={item.value}>
+                <AnimatedModeRow
+                  item={item}
+                  selected={mode === item.value}
+                  onPress={() => setMode(item.value)}
+                />
+
+                {index < MODES.length - 1 && (
+                  <View style={styles.rowBorder} />
+                )}
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.footer,
+            {
+              opacity: footerOpacity,
+            },
+          ]}
+        >
+          <Text style={styles.footerFlower}>
+            🌸
+          </Text>
 
           <Text style={styles.footerTitle}>
             Mirai
@@ -323,7 +680,7 @@ export default function SettingsScreen() {
           <Text style={styles.footerText}>
             Your future starts with one conversation.
           </Text>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -334,8 +691,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFDFE",
   },
-
-  /* Header */
 
   header: {
     height: 96,
@@ -373,8 +728,6 @@ const styles = StyleSheet.create({
     width: 32,
   },
 
-  /* Scroll */
-
   scroll: {
     flex: 1,
   },
@@ -384,8 +737,6 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 45,
   },
-
-  /* Sections */
 
   sectionLabel: {
     fontSize: 11,
@@ -404,8 +755,6 @@ const styles = StyleSheet.create({
     borderColor: "#F1ECEF",
     marginBottom: 23,
   },
-
-  /* Rows */
 
   row: {
     minHeight: 72,
@@ -449,8 +798,6 @@ const styles = StyleSheet.create({
     marginLeft: 18,
   },
 
-  /* Values */
-
   valueContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -471,8 +818,6 @@ const styles = StyleSheet.create({
     fontWeight: "300",
   },
 
-  /* Danger */
-
   dangerLabel: {
     color: "#C96C84",
   },
@@ -481,7 +826,79 @@ const styles = StyleSheet.create({
     color: "#D99AAA",
   },
 
-  /* Footer */
+  modeGroup: {
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F1ECEF",
+    marginBottom: 23,
+  },
+
+  modeRow: {
+    minHeight: 88,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  modeRowSelected: {
+    backgroundColor: "#FFF7FA",
+  },
+
+  modeRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#D8CDD2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 13,
+  },
+
+  modeRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF8FBA",
+  },
+
+  modeText: {
+    flex: 1,
+  },
+
+  modeTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  modeTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#2A2528",
+  },
+
+  modeTitleSelected: {
+    color: "#D96B88",
+  },
+
+  activeText: {
+    marginLeft: 8,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    color: "#D96B88",
+  },
+
+  modeDescription: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#9A9095",
+    marginTop: 4,
+    paddingRight: 8,
+  },
 
   footer: {
     alignItems: "center",

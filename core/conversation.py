@@ -1,43 +1,134 @@
-import json
-import os
-from datetime import datetime
+from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
+
+from db.models import Message
 
 
-CONVERSATION_FILE = "conversation.json"
+def _as_dict(message):
+    return {
+        "role": message.role,
+        "content": message.content,
+        "timestamp": message.created_at.isoformat(),
+    }
 
 
-def load_conversation():
+def add_message(
+    role,
+    content,
+    user_id,
+    db: Session,
+):
+    if not user_id:
+        raise ValueError("user_id is required")
 
-    if not os.path.exists(CONVERSATION_FILE):
-        return []
+    message = Message(
+        user_id=user_id,
+        role=role,
+        content=content,
+        created_at=datetime.now(timezone.utc),
+    )
 
-    with open(CONVERSATION_FILE, "r") as file:
-        return json.load(file)
+    db.add(message)
+    db.commit()
+    db.refresh(message)
 
-
-def save_conversation(conversation):
-
-    with open(CONVERSATION_FILE, "w") as file:
-        json.dump(conversation, file, indent=4)
-
-
-def add_message(role, content): 
-    conversation = load_conversation()
-    conversation.append({
-        "role": role,
-        "content": content,
-        "timestamp": datetime.now().isoformat()
-    })
-    save_conversation(conversation)
+    return _as_dict(message)
 
 
-def get_history(limit=10):
+def load_conversation(
+    user_id,
+    db: Session,
+):
+    if not user_id:
+        raise ValueError("user_id is required")
 
-    conversation = load_conversation()
+    messages = (
+        db.query(Message)
+        .filter(Message.user_id == user_id)
+        .order_by(Message.created_at.asc(), Message.id.asc())
+        .all()
+    )
 
-    return conversation[-limit:]
+    return [_as_dict(message) for message in messages]
 
 
-def clear_conversation():
+def save_conversation(
+    conversation,
+    user_id,
+    db: Session,
+):
+    """
+    Replace the user's conversation in the database.
 
-    save_conversation([])
+    Used mainly for reset/import compatibility.
+    """
+    if not user_id:
+        raise ValueError("user_id is required")
+
+    (
+        db.query(Message)
+        .filter(Message.user_id == user_id)
+        .delete(synchronize_session=False)
+    )
+
+    for item in conversation:
+        created_at = item.get("timestamp")
+
+        if created_at:
+            try:
+                parsed_time = datetime.fromisoformat(created_at)
+                if parsed_time.tzinfo is None:
+                    parsed_time = parsed_time.replace(tzinfo=timezone.utc)
+            except ValueError:
+                parsed_time = datetime.now(timezone.utc)
+        else:
+            parsed_time = datetime.now(timezone.utc)
+
+        db.add(
+            Message(
+                user_id=user_id,
+                role=item["role"],
+                content=item["content"],
+                created_at=parsed_time,
+            )
+        )
+
+    db.commit()
+
+
+def get_history(
+    limit=10,
+    user_id=None,
+    db: Session = None,
+):
+    if not user_id:
+        raise ValueError("user_id is required")
+
+    messages = (
+        db.query(Message)
+        .filter(Message.user_id == user_id)
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    messages.reverse()
+
+    return [_as_dict(message) for message in messages]
+
+
+def clear_conversation(
+    user_id,
+    db: Session,
+):
+    if not user_id:
+        raise ValueError("user_id is required")
+
+    (
+        db.query(Message)
+        .filter(Message.user_id == user_id)
+        .delete(synchronize_session=False)
+    )
+
+    db.commit()

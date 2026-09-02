@@ -9,10 +9,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  Easing,
 } from "react-native";
-import { useEffect, useRef, useState } from "react";
+
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import { BottomNavigation } from "../../components/bottom-navigation";
 import { API_URL } from "../../constants/api";
+import { useSettings } from "../../../context/settings-context";
 
 type Message = {
   id: number;
@@ -21,36 +29,168 @@ type Message = {
   timestamp?: string;
 };
 
+type ChatResponse = {
+  mirai?: string;
+  state?: unknown;
+};
+
+/* =========================================================
+   ANIMATED PRESSABLE
+   ========================================================= */
+
+function AnimatedPressable({
+  children,
+  onPress,
+  style,
+  disabled = false,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+  disabled?: boolean;
+}) {
+  const scale = useRef(
+    new Animated.Value(1)
+  ).current;
+
+  const pressIn = () => {
+    if (disabled) {
+      return;
+    }
+
+    Animated.spring(scale, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 4,
+    }).start();
+  };
+
+  const pressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 24,
+      bounciness: 6,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          transform: [
+            {
+              scale,
+            },
+          ],
+        },
+      ]}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        disabled={disabled}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+/* =========================================================
+   TYPING INDICATOR
+   ========================================================= */
+
 function TypingIndicator() {
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
+  const dot1 = useRef(
+    new Animated.Value(0.3)
+  ).current;
+
+  const dot2 = useRef(
+    new Animated.Value(0.3)
+  ).current;
+
+  const dot3 = useRef(
+    new Animated.Value(0.3)
+  ).current;
+
+  const translate1 = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const translate2 = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const translate3 = useRef(
+    new Animated.Value(0)
+  ).current;
 
   useEffect(() => {
     const animateDot = (
-      dot: Animated.Value,
-      delay: number,
+      opacity: Animated.Value,
+      translate: Animated.Value,
+      delay: number
     ) => {
       return Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(dot, {
-            toValue: 1,
-            duration: 350,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot, {
-            toValue: 0.3,
-            duration: 350,
-            useNativeDriver: true,
-          }),
-        ]),
+
+          Animated.parallel([
+            Animated.timing(opacity, {
+              toValue: 1,
+              duration: 300,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+
+            Animated.timing(translate, {
+              toValue: -3,
+              duration: 300,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+          ]),
+
+          Animated.parallel([
+            Animated.timing(opacity, {
+              toValue: 0.3,
+              duration: 300,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+
+            Animated.timing(translate, {
+              toValue: 0,
+              duration: 300,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
       );
     };
 
-    const animation1 = animateDot(dot1, 0);
-    const animation2 = animateDot(dot2, 150);
-    const animation3 = animateDot(dot3, 300);
+    const animation1 = animateDot(
+      dot1,
+      translate1,
+      0
+    );
+
+    const animation2 = animateDot(
+      dot2,
+      translate2,
+      150
+    );
+
+    const animation3 = animateDot(
+      dot3,
+      translate3,
+      300
+    );
 
     animation1.start();
     animation2.start();
@@ -61,79 +201,411 @@ function TypingIndicator() {
       animation2.stop();
       animation3.stop();
     };
-  }, [dot1, dot2, dot3]);
+  }, [
+    dot1,
+    dot2,
+    dot3,
+    translate1,
+    translate2,
+    translate3,
+  ]);
 
   return (
     <View style={styles.typingBubble}>
       <View style={styles.typingDots}>
         <Animated.View
-          style={[styles.typingDot, { opacity: dot1 }]}
+          style={[
+            styles.typingDot,
+            {
+              opacity: dot1,
+              transform: [
+                {
+                  translateY: translate1,
+                },
+              ],
+            },
+          ]}
         />
+
         <Animated.View
-          style={[styles.typingDot, { opacity: dot2 }]}
+          style={[
+            styles.typingDot,
+            {
+              opacity: dot2,
+              transform: [
+                {
+                  translateY: translate2,
+                },
+              ],
+            },
+          ]}
         />
+
         <Animated.View
-          style={[styles.typingDot, { opacity: dot3 }]}
+          style={[
+            styles.typingDot,
+            {
+              opacity: dot3,
+              transform: [
+                {
+                  translateY: translate3,
+                },
+              ],
+            },
+          ]}
         />
       </View>
     </View>
   );
 }
 
-export default function ChatScreen() {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isSending, setIsSending] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
+/* =========================================================
+   MESSAGE
+   ========================================================= */
 
-  const scrollViewRef = useRef<ScrollView>(null);
+function AnimatedMessage({
+  message,
+}: {
+  message: Message;
+}) {
+  const opacity = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const translateY = useRef(
+    new Animated.Value(8)
+  ).current;
+
+  const scale = useRef(
+    new Animated.Value(0.98)
+  ).current;
 
   useEffect(() => {
-    const loadConversation = async () => {
-      try {
-        const response = await fetch(
-          `${API_URL}/conversation`,
-        );
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
 
-        if (!response.ok) {
-          throw new Error("Failed to load conversation");
-        }
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 240,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
 
-        const data: {
-          role: "user" | "assistant";
-          content: string;
-          timestamp?: string;
-        }[] = await response.json();
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 24,
+        bounciness: 3,
+      }),
+    ]).start();
+  }, []);
 
-        const loadedMessages: Message[] = data.map(
-          (item, index) => ({
-            id: index + 1,
-            text: item.content,
-            sender:
-              item.role === "user"
-                ? "user"
-                : "mirai",
-            timestamp: item.timestamp,
-          }),
-        );
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [
+          {
+            translateY,
+          },
+          {
+            scale,
+          },
+        ],
+      }}
+    >
+      <View
+        style={[
+          styles.messageRow,
+          message.sender === "user" &&
+            styles.userRow,
+        ]}
+      >
+        <View
+          style={
+            message.sender === "user"
+              ? styles.userBubble
+              : styles.miraiBubble
+          }
+        >
+          <Text
+            style={
+              message.sender === "user"
+                ? styles.userText
+                : styles.miraiText
+            }
+          >
+            {message.text}
+          </Text>
 
-        setMessages(loadedMessages);
+          {message.timestamp && (
+            <Text style={styles.timestamp}>
+              {new Date(
+                message.timestamp
+              ).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+          )}
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
 
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({
-            animated: false,
-          });
-        }, 100);
-      } catch (error) {
-        console.error(
-          "Failed to load conversation:",
-          error,
-        );
-      }
+/* =========================================================
+   MAIN SCREEN
+   ========================================================= */
+
+export default function ChatScreen() {
+  const [message, setMessage] =
+    useState("");
+
+  const [messages, setMessages] =
+    useState<Message[]>([]);
+
+  const [isSending, setIsSending] =
+    useState(false);
+
+  const [menuVisible, setMenuVisible] =
+    useState(false);
+
+  const scrollViewRef =
+    useRef<ScrollView>(null);
+
+  const menuOpacity = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const menuScale = useRef(
+    new Animated.Value(0.94)
+  ).current;
+
+  const backdropOpacity = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const thinkingOpacity = useRef(
+    new Animated.Value(0.55)
+  ).current;
+
+  const sendScale = useRef(
+    new Animated.Value(1)
+  ).current;
+
+  const {
+    language,
+    mode,
+  } = useSettings();
+
+  /* =======================================================
+     THINKING ANIMATION
+     ======================================================= */
+
+  useEffect(() => {
+    if (!isSending) {
+      thinkingOpacity.stopAnimation();
+
+      Animated.timing(thinkingOpacity, {
+        toValue: 0.55,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+
+      return;
+    }
+
+    const animation =
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(
+            thinkingOpacity,
+            {
+              toValue: 1,
+              duration: 700,
+              easing: Easing.inOut(
+                Easing.ease
+              ),
+              useNativeDriver: true,
+            }
+          ),
+
+          Animated.timing(
+            thinkingOpacity,
+            {
+              toValue: 0.55,
+              duration: 700,
+              easing: Easing.inOut(
+                Easing.ease
+              ),
+              useNativeDriver: true,
+            }
+          ),
+        ])
+      );
+
+    animation.start();
+
+    return () => {
+      animation.stop();
     };
+  }, [
+    isSending,
+    thinkingOpacity,
+  ]);
+
+  /* =======================================================
+     MENU ANIMATION
+     ======================================================= */
+
+  useEffect(() => {
+    if (!menuVisible) {
+      Animated.parallel([
+        Animated.timing(menuOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+
+        Animated.timing(
+          backdropOpacity,
+          {
+            toValue: 0,
+            duration: 150,
+            useNativeDriver: true,
+          }
+        ),
+
+        Animated.timing(menuScale, {
+          toValue: 0.94,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      return;
+    }
+
+    Animated.parallel([
+      Animated.timing(menuOpacity, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(
+          Easing.ease
+        ),
+        useNativeDriver: true,
+      }),
+
+      Animated.timing(
+        backdropOpacity,
+        {
+          toValue: 1,
+          duration: 180,
+          easing: Easing.out(
+            Easing.ease
+          ),
+          useNativeDriver: true,
+        }
+      ),
+
+      Animated.spring(menuScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 5,
+      }),
+    ]).start();
+  }, [
+    menuVisible,
+    menuOpacity,
+    menuScale,
+    backdropOpacity,
+  ]);
+
+  /* =======================================================
+     LOAD CONVERSATION
+     ======================================================= */
+
+  useEffect(() => {
+    const loadConversation =
+      async () => {
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/conversation`
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              "Failed to load conversation"
+            );
+          }
+
+          const data: {
+            role:
+              | "user"
+              | "assistant";
+
+            content: string;
+
+            timestamp?: string;
+          }[] =
+            await response.json();
+
+          const loadedMessages:
+            Message[] =
+            data.map(
+              (
+                item,
+                index
+              ) => ({
+                id: index + 1,
+
+                text:
+                  item.content,
+
+                sender:
+                  item.role ===
+                  "user"
+                    ? "user"
+                    : "mirai",
+
+                timestamp:
+                  item.timestamp,
+              })
+            );
+
+          setMessages(
+            loadedMessages
+          );
+
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd(
+              {
+                animated: false,
+              }
+            );
+          }, 100);
+        } catch (error) {
+          console.error(
+            "Failed to load conversation:",
+            error
+          );
+        }
+      };
 
     loadConversation();
   }, []);
+
+  /* =======================================================
+     AUTO SCROLL
+     ======================================================= */
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -144,139 +616,299 @@ export default function ChatScreen() {
       scrollViewRef.current?.scrollToEnd({
         animated: true,
       });
-    }, 100);
+    }, 80);
   }, [messages]);
 
-  const sendMessage = async () => {
-    const trimmedMessage = message.trim();
+  /* =======================================================
+     SEND MESSAGE
+     ======================================================= */
 
-    if (!trimmedMessage || isSending) {
-      return;
-    }
+  const sendMessage =
+    async () => {
+      const trimmedMessage =
+        message.trim();
 
-    const newMessage: Message = {
-      id: Date.now(),
-      text: trimmedMessage,
-      sender: "user",
-      timestamp: new Date().toISOString(),
+      if (
+        !trimmedMessage ||
+        isSending
+      ) {
+        return;
+      }
+
+      Animated.sequence([
+        Animated.spring(sendScale, {
+          toValue: 0.88,
+          useNativeDriver: true,
+          speed: 35,
+          bounciness: 2,
+        }),
+
+        Animated.spring(sendScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 25,
+          bounciness: 5,
+        }),
+      ]).start();
+
+      const newMessage:
+        Message = {
+        id: Date.now(),
+
+        text:
+          trimmedMessage,
+
+        sender: "user",
+
+        timestamp:
+          new Date().toISOString(),
+      };
+
+      setMessages(
+        (currentMessages) => [
+          ...currentMessages,
+          newMessage,
+        ]
+      );
+
+      setMessage("");
+
+      setIsSending(true);
+
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/chat`,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  message:
+                    trimmedMessage,
+
+                  language:
+                    language,
+
+                  mode:
+                    mode,
+                }),
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `Mirai server returned ${response.status}`
+          );
+        }
+
+        const data:
+          ChatResponse =
+          await response.json();
+
+        if (!data.mirai) {
+          throw new Error(
+            "Mirai returned an empty response"
+          );
+        }
+
+        const miraiMessage:
+          Message = {
+          id: Date.now() + 1,
+
+          text:
+            data.mirai,
+
+          sender: "mirai",
+
+          timestamp:
+            new Date().toISOString(),
+        };
+
+        setMessages(
+          (currentMessages) => [
+            ...currentMessages,
+            miraiMessage,
+          ]
+        );
+      } catch (error) {
+        console.error(
+          "Failed to send message:",
+          error
+        );
+
+        setMessages(
+          (currentMessages) => [
+            ...currentMessages,
+
+            {
+              id:
+                Date.now() + 1,
+
+              text:
+                "I can’t connect right now. Please try again.",
+
+              sender:
+                "mirai",
+            },
+          ]
+        );
+      } finally {
+        setIsSending(false);
+
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd(
+            {
+              animated: true,
+            }
+          );
+        }, 100);
+      }
     };
 
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      newMessage,
-    ]);
+  /* =======================================================
+     NEW CONVERSATION
+     ======================================================= */
 
-    setMessage("");
-    setIsSending(true);
+  const newConversation =
+    async () => {
+      if (isSending) {
+        return;
+      }
 
-    try {
-      const response = await fetch(
-        `${API_URL}/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: trimmedMessage,
-          }),
-        },
-      );
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/conversation`,
+            {
+              method: "DELETE",
+            }
+          );
 
-      if (!response.ok) {
-        throw new Error(
-          "Mirai server is unavailable",
+        if (!response.ok) {
+          throw new Error(
+            `Failed to start new conversation: ${response.status}`
+          );
+        }
+
+        setMessages([]);
+
+        setMessage("");
+
+        setMenuVisible(false);
+      } catch (error) {
+        console.error(
+          "Failed to start new conversation:",
+          error
         );
       }
+    };
 
-      const data: { mirai?: string } =
-        await response.json();
+  /* =======================================================
+     CLEAR CONVERSATION
+     ======================================================= */
 
-      const miraiMessage = data.mirai;
+  const clearConversation =
+    async () => {
+      if (isSending) {
+        return;
+      }
 
-      if (!miraiMessage) {
-        throw new Error(
-          "Mirai returned an empty response",
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/conversation`,
+            {
+              method: "DELETE",
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to clear conversation: ${response.status}`
+          );
+        }
+
+        setMessages([]);
+
+        setMessage("");
+
+        setMenuVisible(false);
+      } catch (error) {
+        console.error(
+          "Failed to clear conversation:",
+          error
         );
       }
+    };
 
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          id: Date.now() + 1,
-          text: miraiMessage,
-          sender: "mirai",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } catch {
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          id: Date.now() + 1,
-          text:
-            "I can’t connect right now. Please make sure Mirai’s server is running.",
-          sender: "mirai",
-        },
-      ]);
-    } finally {
-      setIsSending(false);
+  /* =======================================================
+     RESET MIRAI
+     ======================================================= */
 
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({
-          animated: true,
-        });
-      }, 100);
-    }
-  };
+  const resetMirai =
+    async () => {
+      if (isSending) {
+        return;
+      }
 
-  const clearConversation = async () => {
-    try {
-      const response = await fetch(
-        `${API_URL}/conversation`,
-        {
-          method: "DELETE",
-        },
-      );
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/reset`,
+            {
+              method: "DELETE",
+            }
+          );
 
-      if (!response.ok) {
-        throw new Error(
-          "Failed to clear conversation",
+        if (!response.ok) {
+          throw new Error(
+            `Failed to reset Mirai: ${response.status}`
+          );
+        }
+
+        setMessages([]);
+
+        setMessage("");
+
+        setMenuVisible(false);
+      } catch (error) {
+        console.error(
+          "Failed to reset Mirai:",
+          error
         );
       }
+    };
 
-      setMessages([]);
-      setMenuVisible(false);
-    } catch (error) {
-      console.error(
-        "Failed to clear conversation:",
-        error,
-      );
-    }
-  };
+  /* =======================================================
+     QUICK REPLY
+     ======================================================= */
 
-  const resetMirai = async () => {
-    try {
-      const response = await fetch(
-        `${API_URL}/reset`,
-        {
-          method: "DELETE",
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to reset Mirai");
+  const sendQuickReply =
+    (text: string) => {
+      if (isSending) {
+        return;
       }
 
-      setMessages([]);
-      setMenuVisible(false);
-    } catch (error) {
-      console.error(
-        "Failed to reset Mirai:",
-        error,
-      );
-    }
+      setMessage(text);
+    };
+
+  /* =======================================================
+     CLOSE MENU
+     ======================================================= */
+
+  const closeMenu = () => {
+    setMenuVisible(false);
   };
+
+  /* =======================================================
+     UI
+     ======================================================= */
 
   return (
     <KeyboardAvoidingView
@@ -288,15 +920,19 @@ export default function ChatScreen() {
       }
       keyboardVerticalOffset={0}
     >
-      {/* Header */}
+      {/* =================================================
+          HEADER
+          ================================================= */}
 
       <View style={styles.header}>
         <View style={styles.miraiInfo}>
-          <View style={styles.avatar}>
+          <Animated.View
+            style={styles.avatar}
+          >
             <Text style={styles.avatarText}>
               🌸
             </Text>
-          </View>
+          </Animated.View>
 
           <View>
             <Text style={styles.name}>
@@ -304,42 +940,88 @@ export default function ChatScreen() {
             </Text>
 
             <View style={styles.statusRow}>
-              <View
+              <Animated.View
                 style={[
                   styles.statusDot,
                   isSending &&
                     styles.statusDotThinking,
+                  {
+                    opacity:
+                      isSending
+                        ? thinkingOpacity
+                        : 1,
+                  },
                 ]}
               />
 
-              <Text style={styles.status}>
+              <Animated.Text
+                style={[
+                  styles.status,
+                  {
+                    opacity:
+                      isSending
+                        ? thinkingOpacity
+                        : 1,
+                  },
+                ]}
+              >
                 {isSending
                   ? "thinking..."
                   : "online"}
-              </Text>
+              </Animated.Text>
             </View>
           </View>
         </View>
 
-        <Pressable
-          onPress={() => setMenuVisible(true)}
+        <AnimatedPressable
+          onPress={() =>
+            setMenuVisible(true)
+          }
         >
           <Text style={styles.menu}>
             •••
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
 
-      {/* Menu */}
+      {/* =================================================
+          MENU
+          ================================================= */}
 
       {menuVisible && (
         <View style={styles.menuOverlay}>
-          <Pressable
-            style={styles.menuBackdrop}
-            onPress={() => setMenuVisible(false)}
-          />
+          <Animated.View
+            pointerEvents="auto"
+            style={[
+              styles.menuBackdrop,
+              {
+                opacity:
+                  backdropOpacity,
+              },
+            ]}
+          >
+            <Pressable
+              style={styles.fullScreenPressable}
+              onPress={closeMenu}
+            />
+          </Animated.View>
 
-          <View style={styles.menuModal}>
+          <Animated.View
+            style={[
+              styles.menuModal,
+              {
+                opacity:
+                  menuOpacity,
+
+                transform: [
+                  {
+                    scale:
+                      menuScale,
+                  },
+                ],
+              },
+            ]}
+          >
             <Text style={styles.menuTitle}>
               Mirai 🌸
             </Text>
@@ -348,66 +1030,110 @@ export default function ChatScreen() {
               Chat options
             </Text>
 
-            <Pressable
-              style={styles.menuAction}
-              onPress={() => {
-                setMessages([]);
-                setMenuVisible(false);
-              }}
+            <AnimatedPressable
+              style={[
+                styles.menuActionWrapper,
+                isSending &&
+                  styles.menuActionDisabled,
+              ]}
+              onPress={newConversation}
+              disabled={isSending}
             >
-              <Text style={styles.menuActionIcon}>
-                ＋
-              </Text>
-
-              <Text style={styles.menuActionText}>
-                New conversation
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.menuAction}
-              onPress={clearConversation}
-            >
-              <Text
-                style={[
-                  styles.menuActionText,
-                  styles.dangerText,
-                ]}
+              <View
+                style={styles.menuAction}
               >
-                Clear history
-              </Text>
-            </Pressable>
+                <Text
+                  style={
+                    styles.menuActionIcon
+                  }
+                >
+                  ＋
+                </Text>
 
-            <Pressable
-              style={styles.menuAction}
+                <Text
+                  style={
+                    styles.menuActionText
+                  }
+                >
+                  New conversation
+                </Text>
+              </View>
+            </AnimatedPressable>
+
+            <AnimatedPressable
+              style={[
+                styles.menuActionWrapper,
+                isSending &&
+                  styles.menuActionDisabled,
+              ]}
+              onPress={
+                clearConversation
+              }
+              disabled={isSending}
+            >
+              <View
+                style={styles.menuAction}
+              >
+                <Text
+                  style={[
+                    styles.menuActionText,
+                    styles.dangerText,
+                  ]}
+                >
+                  Clear history
+                </Text>
+              </View>
+            </AnimatedPressable>
+
+            <AnimatedPressable
+              style={[
+                styles.menuActionWrapper,
+                isSending &&
+                  styles.menuActionDisabled,
+              ]}
               onPress={resetMirai}
+              disabled={isSending}
             >
-              <Text
-                style={[
-                  styles.menuActionText,
-                  styles.dangerText,
-                ]}
+              <View
+                style={styles.menuAction}
               >
-                Reset Mirai
-              </Text>
-            </Pressable>
+                <Text
+                  style={[
+                    styles.menuActionText,
+                    styles.dangerText,
+                  ]}
+                >
+                  Reset Mirai
+                </Text>
+              </View>
+            </AnimatedPressable>
 
-            <Pressable
-              style={styles.cancelButton}
-              onPress={() => setMenuVisible(false)}
+            <AnimatedPressable
+              style={styles.cancelButtonWrapper}
+              onPress={closeMenu}
             >
-              <Text style={styles.cancelText}>
-                Cancel
-              </Text>
-            </Pressable>
-          </View>
+              <View
+                style={styles.cancelButton}
+              >
+                <Text
+                  style={styles.cancelText}
+                >
+                  Cancel
+                </Text>
+              </View>
+            </AnimatedPressable>
+          </Animated.View>
         </View>
       )}
 
-      {/* Chat */}
+      {/* =================================================
+          CHAT
+          ================================================= */}
 
       <ImageBackground
-        source={require("../../../assets/Wallpaper.png")}
+        source={require(
+          "../../../assets/Wallpaper.png"
+        )}
         style={styles.chat}
         imageStyle={styles.wallpaper}
       >
@@ -416,110 +1142,259 @@ export default function ChatScreen() {
           contentContainerStyle={
             styles.chatContent
           }
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={
+            false
+          }
           keyboardShouldPersistTaps="handled"
         >
-          {messages.length === 0 && (
-            <View style={styles.messageRow}>
-              <View style={styles.miraiBubble}>
-                <Text style={styles.miraiText}>
-                  Hey! I'm Mirai 🌸{"\n\n"}
-                  I'm really happy you're here.
-                  {"\n\n"}
-                  Want to practice English
-                  together?
-                </Text>
-              </View>
-            </View>
-          )}
+          {/* =================================================
+              EMPTY STATE
+              ================================================= */}
 
-          {messages.map((item) => (
-            <View
-              key={item.id}
-              style={[
-                styles.messageRow,
-                item.sender === "user" &&
-                  styles.userRow,
-              ]}
-            >
-              <View
+          {messages.length === 0 && (
+            <>
+              <Animated.View
                 style={
-                  item.sender === "user"
-                    ? styles.userBubble
-                    : styles.miraiBubble
+                  styles.messageRow
                 }
               >
-                <Text
+                <View
                   style={
-                    item.sender === "user"
-                      ? styles.userText
-                      : styles.miraiText
+                    styles.miraiBubble
                   }
                 >
-                  {item.text}
-                </Text>
-
-                {item.timestamp && (
-                  <Text style={styles.timestamp}>
-                    {new Date(
-                      item.timestamp,
-                    ).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  <Text
+                    style={
+                      styles.miraiText
+                    }
+                  >
+                    Hey! I'm Mirai 🌸
+                    {"\n\n"}
+                    I'm really happy you're here.
+                    {"\n\n"}
+                    Want to practice English
+                    together?
                   </Text>
-                )}
+                </View>
+              </Animated.View>
+
+              <View
+                style={
+                  styles.quickReplies
+                }
+              >
+                <AnimatedPressable
+                  onPress={() =>
+                    sendQuickReply(
+                      "Let's practice English!"
+                    )
+                  }
+                >
+                  <View
+                    style={
+                      styles.quickReply
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.quickReplyText
+                      }
+                    >
+                      Practice English
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  onPress={() =>
+                    sendQuickReply(
+                      "Let's just talk for a while."
+                    )
+                  }
+                >
+                  <View
+                    style={
+                      styles.quickReply
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.quickReplyText
+                      }
+                    >
+                      Just talk
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  onPress={() =>
+                    sendQuickReply(
+                      "Can you help me study?"
+                    )
+                  }
+                >
+                  <View
+                    style={
+                      styles.quickReply
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.quickReplyText
+                      }
+                    >
+                      Help me study
+                    </Text>
+                  </View>
+                </AnimatedPressable>
               </View>
-            </View>
-          ))}
+            </>
+          )}
+
+          {/* =================================================
+              MESSAGES
+              ================================================= */}
+
+          {messages.map(
+            (item) => (
+              <AnimatedMessage
+                key={item.id}
+                message={item}
+              />
+            )
+          )}
+
+          {/* =================================================
+              TYPING
+              ================================================= */}
 
           {isSending && (
-            <View style={styles.messageRow}>
+            <View
+              style={styles.messageRow}
+            >
               <TypingIndicator />
             </View>
           )}
         </ScrollView>
       </ImageBackground>
 
-      {/* Input */}
+      {/* =================================================
+          INPUT
+          ================================================= */}
 
       <View style={styles.inputArea}>
-        <View style={styles.inputContainer}>
+        <View
+          style={
+            styles.inputContainer
+          }
+        >
           <TextInput
             value={message}
-            onChangeText={setMessage}
+            onChangeText={
+              setMessage
+            }
             placeholder="Message..."
             placeholderTextColor="#999"
             style={styles.input}
             returnKeyType="send"
-            onSubmitEditing={sendMessage}
+            onSubmitEditing={
+              sendMessage
+            }
+            editable={!isSending}
           />
 
-          <Pressable
-            style={[
-              styles.sendButton,
-              !message.trim() &&
-                styles.sendButtonDisabled,
-            ]}
-            onPress={sendMessage}
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  scale: sendScale,
+                },
+              ],
+            }}
           >
-            <Text style={styles.sendText}>
-              ➤
-            </Text>
-          </Pressable>
+            <Pressable
+              style={[
+                styles.sendButton,
+                (
+                  !message.trim() ||
+                  isSending
+                ) &&
+                  styles.sendButtonDisabled,
+              ]}
+              onPress={
+                sendMessage
+              }
+              disabled={
+                !message.trim() ||
+                isSending
+              }
+              onPressIn={() => {
+                if (
+                  !message.trim() ||
+                  isSending
+                ) {
+                  return;
+                }
+
+                Animated.spring(
+                  sendScale,
+                  {
+                    toValue: 0.9,
+                    useNativeDriver: true,
+                    speed: 30,
+                    bounciness: 3,
+                  }
+                ).start();
+              }}
+              onPressOut={() => {
+                Animated.spring(
+                  sendScale,
+                  {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    speed: 25,
+                    bounciness: 5,
+                  }
+                ).start();
+              }}
+            >
+              <Text
+                style={
+                  styles.sendText
+                }
+              >
+                ➤
+              </Text>
+            </Pressable>
+          </Animated.View>
         </View>
       </View>
 
-      <BottomNavigation activeRoute="chat" />
+      {/* =================================================
+          BOTTOM NAVIGATION
+          ================================================= */}
+
+      <BottomNavigation
+        activeRoute="chat"
+      />
     </KeyboardAvoidingView>
   );
 }
+
+/* =========================================================
+   STYLES
+   ========================================================= */
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFDFE",
   },
+
+  /* =======================================================
+     HEADER
+     ======================================================= */
 
   header: {
     height: 92,
@@ -558,15 +1433,15 @@ const styles = StyleSheet.create({
     color: "#222222",
   },
 
-  status: {
-    fontSize: 12,
-    color: "#8E8E8E",
-    marginTop: 2,
-  },
-
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 2,
+  },
+
+  status: {
+    fontSize: 12,
+    color: "#8E8E8E",
     marginTop: 2,
   },
 
@@ -588,6 +1463,10 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
 
+  /* =======================================================
+     CHAT
+     ======================================================= */
+
   chat: {
     flex: 1,
   },
@@ -599,6 +1478,7 @@ const styles = StyleSheet.create({
   chatContent: {
     paddingHorizontal: 16,
     paddingVertical: 24,
+    paddingBottom: 30,
   },
 
   messageRow: {
@@ -617,27 +1497,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderBottomLeftRadius: 5,
     backgroundColor: "#F3F1F2",
-  },
-
-  typingBubble: {
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    borderRadius: 18,
-    borderBottomLeftRadius: 5,
-    backgroundColor: "#F3F1F2",
-  },
-
-  typingDots: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-
-  typingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#746B70",
   },
 
   userBubble: {
@@ -667,6 +1526,62 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     marginTop: 4,
   },
+
+  /* =======================================================
+     TYPING
+     ======================================================= */
+
+  typingBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 18,
+    borderBottomLeftRadius: 5,
+    backgroundColor: "#F3F1F2",
+  },
+
+  typingDots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#746B70",
+  },
+
+  /* =======================================================
+     QUICK REPLIES
+     ======================================================= */
+
+  quickReplies: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 0,
+    marginBottom: 8,
+  },
+
+  quickReply: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 18,
+    backgroundColor: "#FFF5F8",
+    borderWidth: 1,
+    borderColor: "#F3DCE5",
+  },
+
+  quickReplyText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#D96B88",
+  },
+
+  /* =======================================================
+     INPUT
+     ======================================================= */
 
   inputArea: {
     paddingHorizontal: 14,
@@ -711,6 +1626,10 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
 
+  /* =======================================================
+     MENU
+     ======================================================= */
+
   menuOverlay: {
     position: "absolute",
     top: 0,
@@ -732,6 +1651,10 @@ const styles = StyleSheet.create({
       "rgba(30, 20, 25, 0.28)",
   },
 
+  fullScreenPressable: {
+    flex: 1,
+  },
+
   menuModal: {
     width: "82%",
     maxWidth: 340,
@@ -740,13 +1663,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 14,
+
     shadowColor: "#000",
+
     shadowOffset: {
       width: 0,
       height: 8,
     },
+
     shadowOpacity: 0.18,
+
     shadowRadius: 20,
+
     elevation: 12,
   },
 
@@ -765,6 +1693,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
+  menuActionWrapper: {
+    marginBottom: 10,
+  },
+
   menuAction: {
     height: 56,
     borderRadius: 16,
@@ -772,7 +1704,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    marginBottom: 10,
+  },
+
+  menuActionDisabled: {
+    opacity: 0.45,
   },
 
   menuActionIcon: {
@@ -793,11 +1728,14 @@ const styles = StyleSheet.create({
     color: "#D96B88",
   },
 
+  cancelButtonWrapper: {
+    marginTop: 2,
+  },
+
   cancelButton: {
     height: 50,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 2,
   },
 
   cancelText: {

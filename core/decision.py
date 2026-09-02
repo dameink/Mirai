@@ -1,13 +1,21 @@
 from core.brain import get_mirai_state
 
 
-def make_decision(message, analysis):
+def make_decision(
+    message,
+    analysis,
+    user_id=None,
+    db=None,
+):
     """
     Decide how Mirai should respond based on
     already calculated analysis and current state.
     """
 
-    state = get_mirai_state()
+    state = get_mirai_state(
+        user_id=user_id,
+        db=db,
+    )
 
     decision = {
         "tone": state["behavior"].get(

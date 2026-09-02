@@ -297,10 +297,10 @@ def decay_memory_item(
 # =====================================
 
 
-def apply_memory_decay():
+def apply_memory_decay(user_id=None):
 
 
-    data = get_memory()
+    data = get_memory(user_id=user_id)
 
 
 
@@ -342,7 +342,8 @@ def apply_memory_decay():
 
 
     save_memory(
-        data
+        data,
+        user_id=user_id
     )
 
 

@@ -1,7 +1,22 @@
+
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useEffect } from "react";
+import { useAuth } from "../auth/AuthContext";
 
 export default function Index() {
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [loading, user]);
+
+  if (loading || !user) {
+    return null;
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>

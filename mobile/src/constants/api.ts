@@ -1,2 +1,3 @@
-// When the Mac joins another Wi-Fi network, replace this IP with its new local IP.
-export const API_URL = "http://10.70.8.235:8000";
+export const API_URL = process.env.EXPO_PUBLIC_API_URL!;
+
+console.log("MIRAI API URL =", API_URL);

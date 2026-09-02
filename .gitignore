@@ -43,3 +43,7 @@ data/language_profile.json
 mobile/.claude/
 mobile/AGENTS.md
 mobile/CLAUDE.md
+data/*.db
+
+data/users.json
+data/users/

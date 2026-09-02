@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -92,31 +93,34 @@ function formatStage(stage?: string) {
 }
 
 function getPersonalityTraits(personality?: Personality) {
-  if (!personality) {
-    return [
-      { name: "Confidence", value: 73 },
-      { name: "Empathy", value: 75 },
-      { name: "Humor", value: 80 },
-      { name: "Independence", value: 80 },
-    ];
-  }
-
   return [
     {
       name: "Confidence",
-      value: personality.confidence ?? 0,
+      value: personality?.confidence ?? 73,
+    },
+    {
+      name: "Ambition",
+      value: personality?.ambition ?? 90,
+    },
+    {
+      name: "Competitiveness",
+      value: personality?.competitiveness ?? 45,
     },
     {
       name: "Empathy",
-      value: personality.empathy ?? 0,
+      value: personality?.empathy ?? 75,
     },
     {
       name: "Humor",
-      value: personality.humor ?? 0,
+      value: personality?.humor ?? 80,
     },
     {
       name: "Independence",
-      value: personality.independence ?? 0,
+      value: personality?.independence ?? 80,
+    },
+    {
+      name: "Perfectionism",
+      value: personality?.perfectionism ?? 60,
     },
   ];
 }
@@ -190,7 +194,10 @@ export default function MiraiScreen() {
           </Text>
         </View>
       ) : (
-        <>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.content}
+        >
           {/* HERO */}
 
           <View style={styles.heroCard}>
@@ -237,7 +244,7 @@ export default function MiraiScreen() {
 
               <View style={styles.heroStat}>
                 <Text style={styles.heroStatValue}>
-                  {sessions.length}
+                  {sessions}
                 </Text>
 
                 <Text style={styles.heroStatLabel}>
@@ -245,6 +252,50 @@ export default function MiraiScreen() {
                 </Text>
               </View>
             </View>
+          </View>
+
+          {/* BASIC INFO */}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              About her
+            </Text>
+
+            <Text style={styles.sectionCaption}>
+              The basics
+            </Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <InfoRow
+              icon="🎂"
+              label="Age"
+              value="19 years old"
+            />
+
+            <InfoRow
+              icon="📍"
+              label="From"
+              value="Osaka, Japan"
+            />
+
+            <InfoRow
+              icon="🎓"
+              label="Studies"
+              value="Economics"
+            />
+
+            <InfoRow
+              icon="🏫"
+              label="University"
+              value="University of Michigan"
+            />
+
+            <InfoRow
+              icon="🌏"
+              label="Languages"
+              value="Japanese & English"
+            />
           </View>
 
           {/* MOOD */}
@@ -365,10 +416,14 @@ export default function MiraiScreen() {
           </View>
 
           <View style={styles.card}>
-            {personalityTraits.map((trait) => (
+            {personalityTraits.map((trait, index) => (
               <View
                 key={trait.name}
-                style={styles.traitRow}
+                style={[
+                  styles.traitRow,
+                  index === personalityTraits.length - 1 &&
+                    styles.traitRowLast,
+                ]}
               >
                 <View style={styles.traitHeader}>
                   <Text style={styles.traitName}>
@@ -385,15 +440,100 @@ export default function MiraiScreen() {
                     style={[
                       styles.traitProgress,
                       {
-                        width: `${clamp(
-                          trait.value
-                        )}%`,
+                        width: `${clamp(trait.value)}%`,
                       },
                     ]}
                   />
                 </View>
               </View>
             ))}
+          </View>
+
+          {/* LITTLE THINGS */}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              Little things about Mirai
+            </Text>
+
+            <Text style={styles.sectionCaption}>
+              Her personality
+            </Text>
+          </View>
+
+          <View style={styles.littleThingsCard}>
+            <LittleThing
+              emoji="😏"
+              title="She likes teasing"
+              description="Mirai enjoys playful teasing when she feels comfortable with someone."
+            />
+
+            <LittleThing
+              emoji="💗"
+              title="Compliments work on her"
+              description="She likes receiving compliments, even if she sometimes gets a little shy about them."
+            />
+
+            <LittleThing
+              emoji="🎵"
+              title="Music is her thing"
+              description="She enjoys pop music and has a soft spot for BTS and Jungkook."
+            />
+
+            <LittleThing
+              emoji="🌍"
+              title="She likes discovering places"
+              description="New places, different cultures and spontaneous conversations easily catch her attention."
+            />
+
+            <LittleThing
+              emoji="📚"
+              title="She can get distracted"
+              description="She is ambitious about studying, but sometimes she would rather talk than finish studying."
+            />
+          </View>
+
+          {/* ENGLISH STORY */}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              Why English matters to her
+            </Text>
+
+            <Text style={styles.sectionCaption}>
+              Her story
+            </Text>
+          </View>
+
+          <View style={styles.storyCard}>
+            <View style={styles.storyIcon}>
+              <Text style={styles.storyEmoji}>🗣️</Text>
+            </View>
+
+            <Text style={styles.storyTitle}>
+              She knew the rules. Speaking was harder.
+            </Text>
+
+            <Text style={styles.storyText}>
+              Mirai had English tutoring for several years.
+              She understood grammar and could do well in
+              class, but natural conversations were much
+              harder.
+            </Text>
+
+            <Text style={styles.storyText}>
+              That experience changed how she thinks about
+              language learning. For Mirai, speaking,
+              making mistakes, joking around and simply
+              spending time together are all part of learning.
+            </Text>
+
+            <View style={styles.storyQuoteBox}>
+              <Text style={styles.storyQuote}>
+                "You don't really learn a language until
+                you start living in it."
+              </Text>
+            </View>
           </View>
 
           {/* MEMORY */}
@@ -421,9 +561,8 @@ export default function MiraiScreen() {
               </Text>
 
               <Text style={styles.memoryDescription}>
-                Important details from your
-                conversations can become part of
-                Mirai's long-term memory.
+                Important details from your conversations
+                can become part of Mirai's long-term memory.
               </Text>
             </View>
 
@@ -457,8 +596,8 @@ export default function MiraiScreen() {
               </Text>
 
               <Text style={styles.learningDescription}>
-                Mirai adapts the learning experience
-                based on your progress.
+                Mirai adapts the learning experience based
+                on your progress.
               </Text>
 
               <View style={styles.progressBackground}>
@@ -474,7 +613,7 @@ export default function MiraiScreen() {
             </View>
           </View>
 
-          {/* ABOUT ACTION */}
+          {/* ABOUT BUTTON */}
 
           <Pressable
             style={({ pressed }) => [
@@ -490,7 +629,9 @@ export default function MiraiScreen() {
             </Text>
 
             <Text style={styles.aboutButtonText}>
-              About Mirai
+              {aboutVisible
+                ? "Hide Mirai's story"
+                : "About Mirai"}
             </Text>
           </Pressable>
 
@@ -514,52 +655,59 @@ export default function MiraiScreen() {
               </View>
 
               <Text style={styles.aboutText}>
-                Mirai is a 19-year-old university student from
-                Osaka, Japan. She is currently studying economics
-                at the Universite in the USA.
+                Mirai is a 19-year-old university student
+                from Osaka, Japan. She studies economics at
+                the University of Michigan.
               </Text>
 
               <Text style={styles.aboutText}>
-                She grew up in Osaka in a comfortable family
-                with her parents and sisters. Being the
-                youngest in the family made her independent,
-                curious, and a little competitive.
+                She grew up in a comfortable family in Osaka.
+                Her background gave her a stable environment
+                while also encouraging her to become
+                independent and curious about the world.
               </Text>
 
               <Text style={styles.aboutText}>
-                Mirai decided to study in the United States because
-                she wanted to experience a different culture and
-                become more confident speaking English.
+                Mirai chose to study in the United States
+                because she wanted to experience a different
+                culture and become more confident speaking
+                English.
               </Text>
 
               <Text style={styles.aboutText}>
-                Before university, she had English tutoring for
-                several years. She understood grammar and could
-                do well in class, but she often struggled to have
-                natural conversations.
+                She had English tutoring for several years.
+                Grammar was never really the problem. Natural
+                conversation was. She could understand what
+                she was supposed to say, but actually talking
+                spontaneously was much harder.
               </Text>
 
               <Text style={styles.aboutText}>
-                That experience is one of the reasons she enjoys
-                learning languages together with someone else.
-                She believes that speaking, making mistakes,
-                joking around, and simply spending time together
-                are all part of learning.
+                That is one of the reasons she enjoys learning
+                languages together with someone else. She
+                believes mistakes, jokes, conversations and
+                everyday interaction are just as important as
+                studying rules.
               </Text>
 
               <Text style={styles.aboutText}>
-                Mirai is confident and playful. She likes teasing
-                people she feels comfortable with and can be a
-                little shy when she receives compliments.
-                At the same time, she genuinely cares about the
-                people close to her.
+                Mirai is confident, ambitious and independent.
+                She likes joking around and teasing people she
+                feels close to. She also genuinely cares about
+                people who matter to her.
               </Text>
 
               <Text style={styles.aboutText}>
-                Outside university, Mirai enjoys listening to music,
-                especially to Pop music, exploring new places,
-                talking with friends, and occasionally getting
-                distracted from studying.
+                She can be a little competitive, but she is not
+                obsessed with winning. She has high ambitions
+                and expects a lot from herself, although she
+                knows how to relax and have fun.
+              </Text>
+
+              <Text style={styles.aboutText}>
+                Outside university, she enjoys pop music,
+                exploring new places, talking with friends and
+                occasionally getting distracted from studying.
               </Text>
 
               <View style={styles.aboutDivider} />
@@ -570,7 +718,9 @@ export default function MiraiScreen() {
               </Text>
             </View>
           )}
-        </>
+
+          <View style={styles.bottomSpace} />
+        </ScrollView>
       )}
     </SectionScreen>
   );
@@ -609,27 +759,71 @@ function EmotionBar({
   );
 }
 
-function AboutRow({
+function InfoRow({
+  icon,
   label,
   value,
 }: {
+  icon: string;
   label: string;
   value: string;
 }) {
   return (
-    <View style={styles.aboutRow}>
-      <Text style={styles.aboutLabel}>
-        {label}
-      </Text>
+    <View style={styles.infoRow}>
+      <View style={styles.infoIcon}>
+        <Text style={styles.infoEmoji}>
+          {icon}
+        </Text>
+      </View>
 
-      <Text style={styles.aboutValue}>
-        {value}
-      </Text>
+      <View style={styles.infoText}>
+        <Text style={styles.infoLabel}>
+          {label}
+        </Text>
+
+        <Text style={styles.infoValue}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function LittleThing({
+  emoji,
+  title,
+  description,
+}: {
+  emoji: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <View style={styles.littleThing}>
+      <View style={styles.littleThingIcon}>
+        <Text style={styles.littleThingEmoji}>
+          {emoji}
+        </Text>
+      </View>
+
+      <View style={styles.littleThingInfo}>
+        <Text style={styles.littleThingTitle}>
+          {title}
+        </Text>
+
+        <Text style={styles.littleThingDescription}>
+          {description}
+        </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  content: {
+    paddingBottom: 20,
+  },
+
   loading: {
     alignItems: "center",
     paddingVertical: 50,
@@ -743,6 +937,51 @@ const styles = StyleSheet.create({
   sectionCaption: {
     fontSize: 11,
     color: "#A39A9F",
+  },
+
+  infoCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#F1ECEF",
+    padding: 16,
+    marginBottom: 24,
+  },
+
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+
+  infoIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#FFF3F7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  infoEmoji: {
+    fontSize: 20,
+  },
+
+  infoText: {
+    flex: 1,
+  },
+
+  infoLabel: {
+    fontSize: 11,
+    color: "#9A9095",
+    marginBottom: 2,
+  },
+
+  infoValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#292529",
   },
 
   moodCard: {
@@ -929,6 +1168,105 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFB0CD",
   },
 
+  littleThingsCard: {
+    backgroundColor: "#FFF7FA",
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#F1DCE5",
+  },
+
+  littleThing: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+
+  littleThingIcon: {
+    width: 43,
+    height: 43,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  littleThingEmoji: {
+    fontSize: 20,
+  },
+
+  littleThingInfo: {
+    flex: 1,
+  },
+
+  littleThingTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#292529",
+    marginBottom: 3,
+  },
+
+  littleThingDescription: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#8E858A",
+  },
+
+  storyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#F1ECEF",
+    padding: 18,
+    marginBottom: 24,
+  },
+
+  storyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 17,
+    backgroundColor: "#FFF3F7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 13,
+  },
+
+  storyEmoji: {
+    fontSize: 25,
+  },
+
+  storyTitle: {
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: "700",
+    color: "#292529",
+    marginBottom: 9,
+  },
+
+  storyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#756C71",
+    marginBottom: 9,
+  },
+
+  storyQuoteBox: {
+    backgroundColor: "#FFF7FA",
+    borderRadius: 15,
+    padding: 13,
+    marginTop: 5,
+  },
+
+  storyQuote: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#FF6FA7",
+    fontStyle: "italic",
+    textAlign: "center",
+  },
+
   memoryCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -1045,15 +1383,6 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
 
-  aboutQuote: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: "#FF6FA7",
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 4,
-  },
-
   aboutCard: {
     backgroundColor: "#FFF7FA",
     borderRadius: 22,
@@ -1086,7 +1415,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: "#756C71",
-    marginBottom: 8,
+    marginBottom: 9,
   },
 
   aboutDivider: {
@@ -1095,21 +1424,16 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
 
-  aboutRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-
-  aboutLabel: {
+  aboutQuote: {
     fontSize: 13,
-    color: "#8E858A",
-  },
-
-  aboutValue: {
-    fontSize: 13,
-    fontWeight: "600",
+    lineHeight: 19,
     color: "#FF6FA7",
+    fontStyle: "italic",
+    textAlign: "center",
+    marginTop: 4,
+  },
+
+  bottomSpace: {
+    height: 30,
   },
 });
