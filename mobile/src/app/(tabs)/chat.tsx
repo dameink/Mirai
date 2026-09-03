@@ -1,3 +1,4 @@
+
 import {
   View,
   Text,
@@ -19,7 +20,7 @@ import {
 } from "react";
 
 import { BottomNavigation } from "../../components/bottom-navigation";
-import { API_URL } from "../../constants/api";
+import { authFetch } from "../../auth/auth";
 import { useSettings } from "../../../context/settings-context";
 
 type Message = {
@@ -537,8 +538,8 @@ export default function ChatScreen() {
       async () => {
         try {
           const response =
-            await fetch(
-              `${API_URL}/conversation`
+            await authFetch(
+              "/conversation"
             );
 
           if (!response.ok) {
@@ -677,8 +678,8 @@ export default function ChatScreen() {
 
       try {
         const response =
-          await fetch(
-            `${API_URL}/chat`,
+          await authFetch(
+            "/chat",
             {
               method: "POST",
 
@@ -783,8 +784,8 @@ export default function ChatScreen() {
 
       try {
         const response =
-          await fetch(
-            `${API_URL}/conversation`,
+          await authFetch(
+            "/conversation",
             {
               method: "DELETE",
             }
@@ -821,8 +822,8 @@ export default function ChatScreen() {
 
       try {
         const response =
-          await fetch(
-            `${API_URL}/conversation`,
+          await authFetch(
+            "/conversation",
             {
               method: "DELETE",
             }
@@ -859,8 +860,8 @@ export default function ChatScreen() {
 
       try {
         const response =
-          await fetch(
-            `${API_URL}/reset`,
+          await authFetch(
+            "/reset",
             {
               method: "DELETE",
             }

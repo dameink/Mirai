@@ -7,9 +7,11 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.ursuslabs.mirai",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.ursuslabs.mirai",
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
@@ -26,6 +28,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ddec56e6-35fd-41bf-ac6e-6b99d259d82c"
+      }
     }
   }
 }

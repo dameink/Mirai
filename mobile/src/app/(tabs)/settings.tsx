@@ -1,3 +1,4 @@
+
 import { router } from "expo-router";
 import {
   Alert,
@@ -10,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useEffect, useRef } from "react";
-import { API_URL } from "../../constants/api";
+import { authFetch } from "../../auth/auth";
 import { useSettings } from "../../../context/settings-context";
 
 export type Mode = "Auto" | "Casual" | "Learning";
@@ -360,8 +361,8 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await fetch(
-                `${API_URL}/conversation`,
+              const response = await authFetch(
+                "/conversation",
                 {
                   method: "DELETE",
                 },
@@ -408,8 +409,8 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await fetch(
-                `${API_URL}/reset`,
+              const response = await authFetch(
+                "/reset",
                 {
                   method: "DELETE",
                 },

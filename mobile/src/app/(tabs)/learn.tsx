@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,7 +9,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { SectionScreen } from "../../components/section-screen";
-import { API_URL } from "../../constants/api";
+import { authFetch } from "../../auth/auth";
 
 type Skill = {
   value?: number;
@@ -245,8 +246,8 @@ export default function LearnScreen() {
       }, 10000);
 
       try {
-        const response = await fetch(
-          `${API_URL}/learning/profile`,
+        const response = await authFetch(
+          "/learning/profile",
           {
             signal: controller.signal,
           }
@@ -309,8 +310,8 @@ export default function LearnScreen() {
       setStarting(true);
       setError(null);
 
-      const response = await fetch(
-        `${API_URL}/learning/session/start`,
+      const response = await authFetch(
+        "/learning/session/start",
         {
           method: "POST",
         }

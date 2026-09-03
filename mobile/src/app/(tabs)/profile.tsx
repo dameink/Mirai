@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,7 +9,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { SectionScreen } from "../../components/section-screen";
-import { API_URL } from "../../constants/api";
+import { authFetch } from "../../auth/auth";
 
 type Skill = {
   value?: number;
@@ -171,7 +172,7 @@ export default function ProfileScreen() {
       setError(null);
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/learning/profile`);
+      const response = await authFetch("/learning/profile");
 
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);

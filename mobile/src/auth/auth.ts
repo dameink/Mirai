@@ -29,6 +29,7 @@ export async function clearTokens() {
 }
 
 export async function login(email: string, password: string) {
+  console.log("LOGIN API URL:", `${API_URL}/auth/login`);
   const response = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
     headers: {
