@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -31,7 +30,7 @@ type Message = {
 };
 
 type ChatResponse = {
-  mirai?: string;
+  response?: string;
   state?: unknown;
 };
 
@@ -712,7 +711,7 @@ export default function ChatScreen() {
           ChatResponse =
           await response.json();
 
-        if (!data.mirai) {
+        if (!data.response) {
           throw new Error(
             "Mirai returned an empty response"
           );
@@ -723,7 +722,7 @@ export default function ChatScreen() {
           id: Date.now() + 1,
 
           text:
-            data.mirai,
+            data.response,
 
           sender: "mirai",
 
