@@ -1,4 +1,5 @@
-import { useNavigation } from "@react-navigation/native";
+
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export type TabRouteName =
@@ -39,14 +40,12 @@ export function BottomNavigation({
 }: {
   activeRoute: TabRouteName;
 }) {
-  const navigation = useNavigation();
-
   const navigateToTab = (targetRoute: TabRouteName) => {
     if (targetRoute === activeRoute) {
       return;
     }
 
-    navigation.navigate(targetRoute as never);
+    router.push(`/(tabs)/${targetRoute}`);
   };
 
   return (

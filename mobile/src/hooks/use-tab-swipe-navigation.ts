@@ -1,10 +1,11 @@
+
+import { router } from "expo-router";
 import { Dimensions, PanResponder } from "react-native";
 import {
   runOnJS,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useNavigation } from "@react-navigation/native";
 import { TabRouteName } from "../components/bottom-navigation";
 
 const routes: TabRouteName[] = [
@@ -22,7 +23,6 @@ const screenWidth = Dimensions.get("window").width;
 export function useTabSwipeNavigation(
   activeRoute: TabRouteName,
 ) {
-  const navigation = useNavigation();
   const translateX = useSharedValue(0);
 
   const navigateToRoute = (
@@ -33,7 +33,7 @@ export function useTabSwipeNavigation(
       return;
     }
 
-    navigation.navigate(targetRoute as never);
+    router.push(`/(tabs)/${targetRoute}`);
   };
 
   const panResponder = PanResponder.create({
@@ -90,9 +90,7 @@ export function useTabSwipeNavigation(
       const nextRoute = routes[nextIndex];
 
       translateX.value = withTiming(
-        isSwipeLeft
-          ? -screenWidth
-          : screenWidth,
+        isSwipeLeft ? -screenWidth : screenWidth,
         {
           duration: 180,
         },

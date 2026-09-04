@@ -39,6 +39,12 @@ class User(Base):
         nullable=False,
     )
 
+    notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
     sessions = relationship(
         "Session",
         back_populates="user",
@@ -120,6 +126,7 @@ class Session(Base):
         back_populates="sessions",
     )
 
+
 class PushToken(Base):
     __tablename__ = "push_tokens"
 
@@ -159,6 +166,7 @@ class PushToken(Base):
     )
 
     user = relationship("User")
+
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -200,7 +208,6 @@ class Notification(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    
 
     user = relationship("User")
 
@@ -234,24 +241,6 @@ class Message(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-    DateTime(timezone=True),
-    default=lambda: datetime.now(timezone.utc),
-    nullable=False,
-    )
-
-    notifications_enabled: Mapped[bool] = mapped_column(
-        Boolean,
-        default=True,
-        nullable=False,
-    )
-
-    sessions = relationship(
-        "Session",
-        back_populates="user",
-        cascade="all, delete-orphan",
     )
 
     user = relationship(

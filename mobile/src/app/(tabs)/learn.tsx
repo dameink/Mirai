@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect } from "expo-router/react-navigation";
 import { SectionScreen } from "../../components/section-screen";
 import { authFetch } from "../../auth/auth";
 
