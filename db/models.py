@@ -160,6 +160,50 @@ class PushToken(Base):
 
     user = relationship("User")
 
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+
+    type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    body: Mapped[str] = mapped_column(
+        String(1000),
+        nullable=False,
+    )
+
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    opened_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    
+
+    user = relationship("User")
+
 
 class Message(Base):
     __tablename__ = "messages"
@@ -190,6 +234,24 @@ class Message(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+    DateTime(timezone=True),
+    default=lambda: datetime.now(timezone.utc),
+    nullable=False,
+    )
+
+    notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
+    sessions = relationship(
+        "Session",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     user = relationship(

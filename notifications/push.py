@@ -10,7 +10,7 @@ def send_push_notification(
     title: str,
     body: str,
     data: Optional[dict] = None,
-    ):
+):
     payload = {
         "to": token,
         "title": title,
@@ -27,7 +27,12 @@ def send_push_notification(
 
         response.raise_for_status()
 
-        return response.json()
+        result = response.json()
+
+        return {
+            "success": True,
+            "result": result,
+        }
 
     except Exception as e:
         return {

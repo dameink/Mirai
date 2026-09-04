@@ -1,11 +1,10 @@
 from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
+from notifications.notifications import send_notification
 from db.database import get_db
-from db.models import PushToken
+from db.models import PushToken, Notification
 from auth.router import get_current_user
 
 
@@ -66,13 +65,109 @@ def test_notification(
 
     from notifications.push import send_push_notification
 
-    result = send_push_notification(
-        token=push_token.token,
-        title="Mirai 🌸",
-        body="Hey! I'm here. Come talk to me.",
-        data={
+    notification = {
+        "type": "test",
+        "title": "Mirai 🌸",
+        "body": "Hey! I'm here. Come talk to me.",
+        "data": {
             "type": "test",
         },
+    }
+
+    result = send_notification(
+        db=db,
+        user_id=current_user["id"],
+        notification=notification,
     )
 
     return result
+
+
+@router.post("/{notification_id}/opened")
+def mark_notification_opened(
+    notification_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    notification = (
+        db.query(Notification)
+        .filter(
+            Notification.id == notification_id,
+            Notification.user_id == current_user["id"],
+        )
+        .first()
+    )
+
+    if not notification:
+        return {
+            "success": False,
+            "message": "Notification not found",
+        }
+
+    if notification.opened_at is None:
+        notification.opened_at = datetime.now(timezone.utc)
+        db.commit()
+
+    return {
+        "success": True,
+        "message": "Notification marked as opened",
+    }
+
+
+class NotificationSettingsRequest(BaseModel):
+    enabled: bool
+
+
+@router.get("/settings")
+def get_notification_settings(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from db.models import User
+
+    user = (
+        db.query(User)
+        .filter(User.id == current_user["id"])
+        .first()
+    )
+
+    if not user:
+        return {
+            "success": False,
+            "message": "User not found",
+        }
+
+    return {
+        "success": True,
+        "notifications_enabled": user.notifications_enabled,
+    }
+
+
+@router.patch("/settings")
+def update_notification_settings(
+    data: NotificationSettingsRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from db.models import User
+
+    user = (
+        db.query(User)
+        .filter(User.id == current_user["id"])
+        .first()
+    )
+
+    if not user:
+        return {
+            "success": False,
+            "message": "User not found",
+        }
+
+    user.notifications_enabled = data.enabled
+
+    db.commit()
+
+    return {
+        "success": True,
+        "notifications_enabled": user.notifications_enabled,
+    }

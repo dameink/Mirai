@@ -1,4 +1,3 @@
-
 import { router } from "expo-router";
 import {
   Alert,
@@ -7,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -62,7 +62,12 @@ function AnimatedRow({
   };
 
   return (
-    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+    <Animated.View
+      style={[
+        { transform: [{ scale }] },
+        style,
+      ]}
+    >
       <Pressable
         onPress={onPress}
         onPressIn={() => animatePress(true)}
@@ -88,9 +93,11 @@ function AnimatedModeRow({
   onPress: () => void;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+
   const radioScale = useRef(
     new Animated.Value(selected ? 1 : 0),
   ).current;
+
   const activeOpacity = useRef(
     new Animated.Value(selected ? 1 : 0),
   ).current;
@@ -170,10 +177,11 @@ function AnimatedModeRow({
                   opacity: activeOpacity,
                   transform: [
                     {
-                      translateX: activeOpacity.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-5, 0],
-                      }),
+                      translateX:
+                        activeOpacity.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-5, 0],
+                        }),
                     },
                   ],
                 },
@@ -196,11 +204,16 @@ export default function SettingsScreen() {
   const {
     language,
     mode,
+    notificationsEnabled,
     setLanguage,
     setMode,
+    setNotificationsEnabled,
   } = useSettings();
 
-  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenOpacity = useRef(
+    new Animated.Value(0),
+  ).current;
+
   const screenTranslate = useRef(
     new Animated.Value(12),
   ).current;
@@ -208,6 +221,7 @@ export default function SettingsScreen() {
   const preferencesOpacity = useRef(
     new Animated.Value(0),
   ).current;
+
   const preferencesTranslate = useRef(
     new Animated.Value(12),
   ).current;
@@ -215,6 +229,7 @@ export default function SettingsScreen() {
   const miraiOpacity = useRef(
     new Animated.Value(0),
   ).current;
+
   const miraiTranslate = useRef(
     new Animated.Value(12),
   ).current;
@@ -222,6 +237,7 @@ export default function SettingsScreen() {
   const modesOpacity = useRef(
     new Animated.Value(0),
   ).current;
+
   const modesTranslate = useRef(
     new Animated.Value(12),
   ).current;
@@ -537,6 +553,35 @@ export default function SettingsScreen() {
                 <Text style={styles.arrow}>›</Text>
               </View>
             </AnimatedRow>
+
+            <View style={styles.rowBorder} />
+
+            <View style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>
+                  Notifications
+                </Text>
+
+                <Text style={styles.rowDescription}>
+                  Get messages from Mirai
+                </Text>
+              </View>
+
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={setNotificationsEnabled}
+                trackColor={{
+                  false: "#D8CDD2",
+                  true: "#FFB3C9",
+                }}
+                thumbColor={
+                  notificationsEnabled
+                    ? "#FF8FBA"
+                    : "#FFFFFF"
+                }
+                ios_backgroundColor="#D8CDD2"
+              />
+            </View>
           </View>
         </Animated.View>
 
