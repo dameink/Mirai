@@ -36,11 +36,16 @@ function NotificationRegistration() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <NotificationRegistration />
+      <SettingsProvider>
+        <NotificationRegistration />
 
-      <Stack>
-        ...
-      </Stack>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="register" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </SettingsProvider>
     </AuthProvider>
   );
 }
