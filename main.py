@@ -25,6 +25,7 @@ from core.memory import clear_memory
 
 from auth.router import router as auth_router
 from auth.router import get_current_user
+from notifications.router import router as notifications_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +38,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
+app.include_router(notifications_router)
 
 
 # =========================================
