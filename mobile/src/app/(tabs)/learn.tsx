@@ -1,5 +1,4 @@
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -285,15 +284,12 @@ export default function LearnScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadLearning();
-  }, [loadLearning]);
-
   /*
-   * Важно:
-   * после Chat / Practice пользователь может изменить
-   * learning state. Поэтому при возвращении на экран
-   * профиль снова запрашивается с backend.
+   * Обновляем learning profile:
+   * - при первом открытии экрана;
+   * - каждый раз, когда пользователь возвращается
+   *   на вкладку Learn;
+   * - после завершения learning session.
    */
   useFocusEffect(
     useCallback(() => {

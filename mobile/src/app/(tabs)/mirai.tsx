@@ -1,5 +1,10 @@
-
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
   Animated,
@@ -133,11 +138,25 @@ export default function MiraiScreen() {
   const [loading, setLoading] = useState(true);
   const [aboutVisible, setAboutVisible] = useState(false);
 
-  const screenOpacity = useRef(new Animated.Value(0)).current;
-  const screenTranslateY = useRef(new Animated.Value(15)).current;
-  const avatarScale = useRef(new Animated.Value(1)).current;
+  const screenOpacity = useRef(
+    new Animated.Value(0)
+  ).current;
 
-  const loadState = async () => {
+  const screenTranslateY = useRef(
+    new Animated.Value(15)
+  ).current;
+
+  const avatarScale = useRef(
+    new Animated.Value(1)
+  ).current;
+
+  /*
+   * Load the current Mirai state from the backend.
+   *
+   * This is wrapped in useCallback so it can safely be
+   * used by useFocusEffect.
+   */
+  const loadState = useCallback(async () => {
     try {
       const response = await authFetch("/state");
 
@@ -149,18 +168,56 @@ export default function MiraiScreen() {
 
       const data = (await response.json()) as MiraiState;
 
+      console.log("Mirai state updated:", data);
+
       setState(data);
     } catch (error) {
-      console.log("Failed to load Mirai state:", error);
+      console.log(
+        "Failed to load Mirai state:",
+        error
+      );
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadState();
   }, []);
 
+  /*
+   * Load state when the screen is first mounted.
+   *
+   * More importantly, useFocusEffect below reloads it
+   * every time the user comes back to this tab.
+   */
+  useEffect(() => {
+    loadState();
+  }, [loadState]);
+
+  /*
+   * Refresh Mirai's state every time the Mirai tab
+   * becomes active again.
+   *
+   * Example:
+   *
+   * Chat
+   *   ↓
+   * talk to Mirai
+   *   ↓
+   * backend updates emotion / relationship / memory / learning
+   *   ↓
+   * open Mirai tab
+   *   ↓
+   * GET /state
+   *   ↓
+   * UI receives the new numbers
+   */
+  useFocusEffect(
+    useCallback(() => {
+      loadState();
+    }, [loadState])
+  );
+
+  /*
+   * Initial screen animation.
+   */
   useEffect(() => {
     if (loading || !state) return;
 
@@ -211,7 +268,9 @@ export default function MiraiScreen() {
     avatarScale,
   ]);
 
-  const mood = state ? getMood(state.emotion) : null;
+  const mood = state
+    ? getMood(state.emotion)
+    : null;
 
   const relationshipStage = formatStage(
     state?.relationship.stage
@@ -221,9 +280,8 @@ export default function MiraiScreen() {
     state?.relationship.closeness ?? 0
   );
 
-  const personalityTraits = getPersonalityTraits(
-    state?.personality
-  );
+  const personalityTraits =
+    getPersonalityTraits(state?.personality);
 
   const memoryCount =
     state?.memory?.count ??
@@ -285,10 +343,14 @@ export default function MiraiScreen() {
                   },
                 ]}
               >
-                <Text style={styles.avatarText}>🌸</Text>
+                <Text style={styles.avatarText}>
+                  🌸
+                </Text>
               </Animated.View>
 
-              <Text style={styles.name}>Mirai</Text>
+              <Text style={styles.name}>
+                Mirai
+              </Text>
 
               <Text style={styles.status}>
                 {mood
@@ -415,22 +477,30 @@ export default function MiraiScreen() {
               <View style={styles.emotionGrid}>
                 <EmotionBar
                   label="Happiness"
-                  value={state?.emotion.happiness ?? 0}
+                  value={
+                    state?.emotion.happiness ?? 0
+                  }
                 />
 
                 <EmotionBar
                   label="Energy"
-                  value={state?.emotion.energy ?? 0}
+                  value={
+                    state?.emotion.energy ?? 0
+                  }
                 />
 
                 <EmotionBar
                   label="Curiosity"
-                  value={state?.emotion.curiosity ?? 0}
+                  value={
+                    state?.emotion.curiosity ?? 0
+                  }
                 />
 
                 <EmotionBar
                   label="Comfort"
-                  value={state?.emotion.comfort ?? 0}
+                  value={
+                    state?.emotion.comfort ?? 0
+                  }
                 />
               </View>
             </View>
@@ -454,19 +524,33 @@ export default function MiraiScreen() {
                     CURRENT STAGE
                   </Text>
 
-                  <Text style={styles.relationshipStage}>
+                  <Text
+                    style={
+                      styles.relationshipStage
+                    }
+                  >
                     {relationshipStage}
                   </Text>
                 </View>
 
-                <View style={styles.relationshipBadge}>
-                  <Text style={styles.relationshipBadgeText}>
+                <View
+                  style={
+                    styles.relationshipBadge
+                  }
+                >
+                  <Text
+                    style={
+                      styles.relationshipBadgeText
+                    }
+                  >
                     {Math.round(closeness)}%
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.progressBackground}>
+              <View
+                style={styles.progressBackground}
+              >
                 <View
                   style={[
                     styles.progress,
@@ -497,37 +581,55 @@ export default function MiraiScreen() {
             </View>
 
             <View style={styles.card}>
-              {personalityTraits.map((trait, index) => (
-                <View
-                  key={trait.name}
-                  style={[
-                    styles.traitRow,
-                    index === personalityTraits.length - 1 &&
-                      styles.traitRowLast,
-                  ]}
-                >
-                  <View style={styles.traitHeader}>
-                    <Text style={styles.traitName}>
-                      {trait.name}
-                    </Text>
-
-                    <Text style={styles.traitValue}>
-                      {Math.round(trait.value)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.traitBackground}>
+              {personalityTraits.map(
+                (trait, index) => (
+                  <View
+                    key={trait.name}
+                    style={[
+                      styles.traitRow,
+                      index ===
+                        personalityTraits.length -
+                          1 &&
+                        styles.traitRowLast,
+                    ]}
+                  >
                     <View
-                      style={[
-                        styles.traitProgress,
-                        {
-                          width: `${clamp(trait.value)}%`,
-                        },
-                      ]}
-                    />
+                      style={styles.traitHeader}
+                    >
+                      <Text
+                        style={styles.traitName}
+                      >
+                        {trait.name}
+                      </Text>
+
+                      <Text
+                        style={styles.traitValue}
+                      >
+                        {Math.round(
+                          trait.value
+                        )}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={
+                        styles.traitBackground
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.traitProgress,
+                          {
+                            width: `${clamp(
+                              trait.value
+                            )}%`,
+                          },
+                        ]}
+                      />
+                    </View>
                   </View>
-                </View>
-              ))}
+                )
+              )}
             </View>
 
             {/* LITTLE THINGS */}
@@ -542,7 +644,9 @@ export default function MiraiScreen() {
               </Text>
             </View>
 
-            <View style={styles.littleThingsCard}>
+            <View
+              style={styles.littleThingsCard}
+            >
               <LittleThing
                 emoji="😏"
                 title="She likes teasing"
@@ -588,7 +692,9 @@ export default function MiraiScreen() {
 
             <View style={styles.storyCard}>
               <View style={styles.storyIcon}>
-                <Text style={styles.storyEmoji}>🗣️</Text>
+                <Text style={styles.storyEmoji}>
+                  🗣️
+                </Text>
               </View>
 
               <Text style={styles.storyTitle}>
@@ -596,23 +702,24 @@ export default function MiraiScreen() {
               </Text>
 
               <Text style={styles.storyText}>
-                Mirai had English tutoring for several years.
-                She understood grammar and could do well in
-                class, but natural conversations were much
-                harder.
+                Mirai had English tutoring for several
+                years. She understood grammar and could
+                do well in class, but natural
+                conversations were much harder.
               </Text>
 
               <Text style={styles.storyText}>
-                That experience changed how she thinks about
-                language learning. For Mirai, speaking,
-                making mistakes, joking around and simply
-                spending time together are all part of learning.
+                That experience changed how she thinks
+                about language learning. For Mirai,
+                speaking, making mistakes, joking around
+                and simply spending time together are
+                all part of learning.
               </Text>
 
               <View style={styles.storyQuoteBox}>
                 <Text style={styles.storyQuote}>
-                  "You don't really learn a language until
-                  you start living in it."
+                  "You don't really learn a language
+                  until you start living in it."
                 </Text>
               </View>
             </View>
@@ -641,9 +748,14 @@ export default function MiraiScreen() {
                   {memoryCount} memories
                 </Text>
 
-                <Text style={styles.memoryDescription}>
-                  Important details from your conversations
-                  can become part of Mirai's long-term memory.
+                <Text
+                  style={
+                    styles.memoryDescription
+                  }
+                >
+                  Important details from your
+                  conversations can become part of
+                  Mirai's long-term memory.
                 </Text>
               </View>
 
@@ -666,22 +778,34 @@ export default function MiraiScreen() {
 
             <View style={styles.learningCard}>
               <View style={styles.learningIcon}>
-                <Text style={styles.learningEmoji}>
+                <Text
+                  style={styles.learningEmoji}
+                >
                   📚
                 </Text>
               </View>
 
               <View style={styles.learningInfo}>
                 <Text style={styles.learningTitle}>
-                  {Math.round(learningProgress)}% progress
+                  {Math.round(
+                    learningProgress
+                  )}% progress
                 </Text>
 
-                <Text style={styles.learningDescription}>
-                  Mirai adapts the learning experience based
-                  on your progress.
+                <Text
+                  style={
+                    styles.learningDescription
+                  }
+                >
+                  Mirai adapts the learning experience
+                  based on your progress.
                 </Text>
 
-                <View style={styles.progressBackground}>
+                <View
+                  style={
+                    styles.progressBackground
+                  }
+                >
                   <View
                     style={[
                       styles.progress,
@@ -699,17 +823,24 @@ export default function MiraiScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.aboutButton,
-                pressed && styles.buttonPressed,
+                pressed &&
+                  styles.buttonPressed,
               ]}
               onPress={() =>
-                setAboutVisible(!aboutVisible)
+                setAboutVisible(
+                  !aboutVisible
+                )
               }
             >
-              <Text style={styles.aboutButtonIcon}>
+              <Text
+                style={styles.aboutButtonIcon}
+              >
                 ✨
               </Text>
 
-              <Text style={styles.aboutButtonText}>
+              <Text
+                style={styles.aboutButtonText}
+              >
                 {aboutVisible
                   ? "Hide Mirai's story"
                   : "About Mirai"}
@@ -721,81 +852,99 @@ export default function MiraiScreen() {
             {aboutVisible && (
               <View style={styles.aboutCard}>
                 <View style={styles.aboutHeader}>
-                  <Text style={styles.aboutTitle}>
+                  <Text
+                    style={styles.aboutTitle}
+                  >
                     About Mirai
                   </Text>
 
                   <Pressable
-                    onPress={() => setAboutVisible(false)}
+                    onPress={() =>
+                      setAboutVisible(false)
+                    }
                     hitSlop={10}
                   >
-                    <Text style={styles.closeButton}>
+                    <Text
+                      style={styles.closeButton}
+                    >
                       ×
                     </Text>
                   </Pressable>
                 </View>
 
                 <Text style={styles.aboutText}>
-                  Mirai is a 19-year-old university student
-                  from Osaka, Japan. She studies economics at
-                  the University of Michigan.
+                  Mirai is a 19-year-old university
+                  student from Osaka, Japan. She
+                  studies economics at the University
+                  of Michigan.
                 </Text>
 
                 <Text style={styles.aboutText}>
-                  She grew up in a comfortable family in Osaka.
-                  Her background gave her a stable environment
-                  while also encouraging her to become
-                  independent and curious about the world.
+                  She grew up in a comfortable family
+                  in Osaka. Her background gave her a
+                  stable environment while also
+                  encouraging her to become independent
+                  and curious about the world.
                 </Text>
 
                 <Text style={styles.aboutText}>
-                  Mirai chose to study in the United States
-                  because she wanted to experience a different
-                  culture and become more confident speaking
+                  Mirai chose to study in the United
+                  States because she wanted to
+                  experience a different culture and
+                  become more confident speaking
                   English.
                 </Text>
 
                 <Text style={styles.aboutText}>
-                  She had English tutoring for several years.
-                  Grammar was never really the problem. Natural
-                  conversation was. She could understand what
-                  she was supposed to say, but actually talking
+                  She had English tutoring for several
+                  years. Grammar was never really the
+                  problem. Natural conversation was.
+                  She could understand what she was
+                  supposed to say, but actually talking
                   spontaneously was much harder.
                 </Text>
 
                 <Text style={styles.aboutText}>
-                  That is one of the reasons she enjoys learning
-                  languages together with someone else. She
-                  believes mistakes, jokes, conversations and
-                  everyday interaction are just as important as
+                  That is one of the reasons she enjoys
+                  learning languages together with
+                  someone else. She believes mistakes,
+                  jokes, conversations and everyday
+                  interaction are just as important as
                   studying rules.
                 </Text>
 
                 <Text style={styles.aboutText}>
-                  Mirai is confident, ambitious and independent.
-                  She likes joking around and teasing people she
-                  feels close to. She also genuinely cares about
-                  people who matter to her.
+                  Mirai is confident, ambitious and
+                  independent. She likes joking around
+                  and teasing people she feels close to.
+                  She also genuinely cares about people
+                  who matter to her.
                 </Text>
 
                 <Text style={styles.aboutText}>
-                  She can be a little competitive, but she is not
-                  obsessed with winning. She has high ambitions
-                  and expects a lot from herself, although she
-                  knows how to relax and have fun.
+                  She can be a little competitive, but
+                  she is not obsessed with winning. She
+                  has high ambitions and expects a lot
+                  from herself, although she knows how
+                  to relax and have fun.
                 </Text>
 
                 <Text style={styles.aboutText}>
-                  Outside university, she enjoys pop music,
-                  exploring new places, talking with friends and
-                  occasionally getting distracted from studying.
+                  Outside university, she enjoys pop
+                  music, exploring new places, talking
+                  with friends and occasionally getting
+                  distracted from studying.
                 </Text>
 
-                <View style={styles.aboutDivider} />
+                <View
+                  style={styles.aboutDivider}
+                />
 
-                <Text style={styles.aboutQuote}>
-                  "The future is more fun when you don't have to
-                  figure it out alone."
+                <Text
+                  style={styles.aboutQuote}
+                >
+                  "The future is more fun when you don't
+                  have to figure it out alone."
                 </Text>
               </View>
             )}
@@ -827,7 +976,9 @@ function EmotionBar({
         </Text>
       </View>
 
-      <View style={styles.emotionBackground}>
+      <View
+        style={styles.emotionBackground}
+      >
         <View
           style={[
             styles.emotionProgress,
@@ -882,18 +1033,30 @@ function LittleThing({
 }) {
   return (
     <View style={styles.littleThing}>
-      <View style={styles.littleThingIcon}>
-        <Text style={styles.littleThingEmoji}>
+      <View
+        style={styles.littleThingIcon}
+      >
+        <Text
+          style={styles.littleThingEmoji}
+        >
           {emoji}
         </Text>
       </View>
 
-      <View style={styles.littleThingInfo}>
-        <Text style={styles.littleThingTitle}>
+      <View
+        style={styles.littleThingInfo}
+      >
+        <Text
+          style={styles.littleThingTitle}
+        >
           {title}
         </Text>
 
-        <Text style={styles.littleThingDescription}>
+        <Text
+          style={
+            styles.littleThingDescription
+          }
+        >
           {description}
         </Text>
       </View>

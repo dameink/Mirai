@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,6 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
 import { SectionScreen } from "../../components/section-screen";
 import { authFetch } from "../../auth/auth";
@@ -167,7 +167,7 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setError(null);
       setLoading(true);
@@ -175,28 +175,48 @@ export default function ProfileScreen() {
       const response = await authFetch("/learning/profile");
 
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        throw new Error(
+          `Request failed with status ${response.status}`
+        );
       }
 
       const data = (await response.json()) as LearningProfile;
+
+      console.log("Learning profile updated:", data);
 
       setProfile(data);
     } catch (error) {
       console.log("Failed to load profile:", error);
 
       setError(
-        error instanceof Error ? error.message : "Failed to load profile"
+        error instanceof Error
+          ? error.message
+          : "Failed to load profile"
       );
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadProfile();
   }, []);
 
+  /*
+   * Every time the Profile tab becomes active,
+   * request the newest learning state from the backend.
+   *
+   * This means:
+   * Chat with Mirai
+   * → backend updates learning
+   * → open Profile
+   * → Profile requests fresh data
+   * → numbers change.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
+
   const progress = profile ? getProgress(profile) : 0;
+
   const level = getCEFR(progress);
   const nextLevel = getNextLevel(level);
   const levelProgress = getLevelProgress(progress, level);
@@ -222,7 +242,9 @@ export default function ProfileScreen() {
     profile?.analysis?.difficulty?.difficulty
   );
 
-  const mode = getModeLabel(profile?.analysis?.mode?.mode);
+  const mode = getModeLabel(
+    profile?.analysis?.mode?.mode
+  );
 
   return (
     <SectionScreen
@@ -245,23 +267,31 @@ export default function ProfileScreen() {
             Couldn't load profile
           </Text>
 
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>
+            {error}
+          </Text>
 
           <Pressable
             style={styles.retryButton}
             onPress={loadProfile}
           >
-            <Text style={styles.retryText}>Try again</Text>
+            <Text style={styles.retryText}>
+              Try again
+            </Text>
           </Pressable>
         </View>
       ) : (
         <>
           <View style={styles.profileCard}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>👤</Text>
+              <Text style={styles.avatarText}>
+                👤
+              </Text>
             </View>
 
-            <Text style={styles.name}>You</Text>
+            <Text style={styles.name}>
+              You
+            </Text>
 
             <Text style={styles.subtitle}>
               English learner
@@ -274,7 +304,9 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Your level</Text>
+          <Text style={styles.sectionTitle}>
+            Your level
+          </Text>
 
           <View style={styles.levelCard}>
             <View style={styles.levelHeader}>
@@ -283,11 +315,15 @@ export default function ProfileScreen() {
                   CEFR LEVEL
                 </Text>
 
-                <Text style={styles.level}>{level}</Text>
+                <Text style={styles.level}>
+                  {level}
+                </Text>
               </View>
 
               <View style={styles.levelFlower}>
-                <Text style={styles.flower}>🌸</Text>
+                <Text style={styles.flower}>
+                  🌸
+                </Text>
               </View>
             </View>
 
@@ -327,7 +363,9 @@ export default function ProfileScreen() {
 
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statIcon}>📚</Text>
+              <Text style={styles.statIcon}>
+                📚
+              </Text>
 
               <Text style={styles.statValue}>
                 {sessions}
@@ -344,7 +382,9 @@ export default function ProfileScreen() {
                 styles.statCardSecond,
               ]}
             >
-              <Text style={styles.statIcon}>🌸</Text>
+              <Text style={styles.statIcon}>
+                🌸
+              </Text>
 
               <Text style={styles.statValue}>
                 {progress}%
@@ -435,7 +475,9 @@ export default function ProfileScreen() {
 
           <View style={styles.goalCard}>
             <View style={styles.goalIcon}>
-              <Text style={styles.goalEmoji}>🎯</Text>
+              <Text style={styles.goalEmoji}>
+                🎯
+              </Text>
             </View>
 
             <View style={styles.goalInfo}>
@@ -454,7 +496,9 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>App</Text>
+          <Text style={styles.sectionTitle}>
+            App
+          </Text>
 
           <Pressable
             style={({ pressed }) => [
@@ -464,7 +508,9 @@ export default function ProfileScreen() {
             onPress={() => router.push("./settings")}
           >
             <View style={styles.settingsIcon}>
-              <Text style={styles.settingsEmoji}>⚙️</Text>
+              <Text style={styles.settingsEmoji}>
+                ⚙️
+              </Text>
             </View>
 
             <View style={styles.settingsInfo}>
@@ -477,7 +523,9 @@ export default function ProfileScreen() {
               </Text>
             </View>
 
-            <Text style={styles.arrow}>›</Text>
+            <Text style={styles.arrow}>
+              ›
+            </Text>
           </Pressable>
         </>
       )}
