@@ -1,3 +1,4 @@
+
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -6,8 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+
 import { SectionScreen } from "../../components/section-screen";
 import { authFetch } from "../../auth/auth";
 
@@ -20,29 +21,38 @@ type LearningProfile = {
   learner?: {
     skills?: Record<string, Record<string, Skill>>;
   };
+
   analysis?: {
     goal?: {
       goal?: string;
     };
+
     state?: {
       confidence?: number;
       [key: string]: unknown;
     };
+
     difficulty?: {
       difficulty?: string;
     };
+
     mode?: {
       mode?: string;
     };
   };
+
   sessions?: unknown[];
+
   strategy?: {
     goal?: string;
   };
 };
 
 function clamp(value: number): number {
-  if (!Number.isFinite(value)) return 0;
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
   return Math.max(0, Math.min(100, value));
 }
 
@@ -66,23 +76,33 @@ function getProgress(profile: LearningProfile): number {
   const values: number[] = [];
 
   Object.values(skills).forEach((category) => {
-    if (!category || typeof category !== "object") return;
+    if (!category || typeof category !== "object") {
+      return;
+    }
 
     Object.values(category).forEach((skill) => {
+      if (!skill || typeof skill !== "object") {
+        return;
+      }
+
+      const value = skill.value;
+      const evidence = skill.evidence_count;
+
       if (
-        skill &&
-        typeof skill.value === "number" &&
-        Number.isFinite(skill.value) &&
-        typeof skill.evidence_count === "number" &&
-        Number.isFinite(skill.evidence_count) &&
-        skill.evidence_count > 0
+        typeof value === "number" &&
+        Number.isFinite(value) &&
+        typeof evidence === "number" &&
+        Number.isFinite(evidence) &&
+        evidence > 0
       ) {
-        values.push(clamp(skill.value));
+        values.push(clamp(value));
       }
     });
   });
 
-  if (values.length === 0) return 0;
+  if (values.length === 0) {
+    return 0;
+  }
 
   const average =
     values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -115,7 +135,10 @@ function getNextLevel(level: string): string {
   return levels[level] ?? "B1";
 }
 
-function getLevelProgress(progress: number, level: string): number {
+function getLevelProgress(
+  progress: number,
+  level: string
+): number {
   const ranges: Record<string, [number, number]> = {
     A1: [0, 20],
     A2: [20, 40],
@@ -125,29 +148,45 @@ function getLevelProgress(progress: number, level: string): number {
     C2: [90, 100],
   };
 
-  if (level === "C2") return 100;
+  if (level === "C2") {
+    return 100;
+  }
 
   const [start, end] = ranges[level] ?? [0, 100];
 
-  if (end <= start) return 0;
+  if (end <= start) {
+    return 0;
+  }
 
   return clamp(
-    Math.round(((clamp(progress) - start) / (end - start)) * 100)
+    Math.round(
+      ((clamp(progress) - start) / (end - start)) * 100
+    )
   );
 }
 
 function getConfidenceLabel(confidence: number): string {
   const value = clamp(confidence);
 
-  if (value < 25) return "Just getting started";
-  if (value < 50) return "Building confidence";
-  if (value < 75) return "Growing confidence";
+  if (value < 25) {
+    return "Just getting started";
+  }
+
+  if (value < 50) {
+    return "Building confidence";
+  }
+
+  if (value < 75) {
+    return "Growing confidence";
+  }
 
   return "Feeling confident";
 }
 
 function getDifficultyLabel(value: unknown): string {
-  if (!value) return "Adaptive";
+  if (!value) {
+    return "Adaptive";
+  }
 
   const formatted = formatTitle(value);
 
@@ -155,7 +194,9 @@ function getDifficultyLabel(value: unknown): string {
 }
 
 function getModeLabel(value: unknown): string {
-  if (!value) return "Balanced";
+  if (!value) {
+    return "Balanced";
+  }
 
   const formatted = formatTitle(value);
 
@@ -163,7 +204,9 @@ function getModeLabel(value: unknown): string {
 }
 
 export default function ProfileScreen() {
-  const [profile, setProfile] = useState<LearningProfile | null>(null);
+  const [profile, setProfile] =
+    useState<LearningProfile | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -180,7 +223,8 @@ export default function ProfileScreen() {
         );
       }
 
-      const data = (await response.json()) as LearningProfile;
+      const data =
+        (await response.json()) as LearningProfile;
 
       console.log("Learning profile updated:", data);
 
@@ -198,28 +242,23 @@ export default function ProfileScreen() {
     }
   }, []);
 
-  /*
-   * Every time the Profile tab becomes active,
-   * request the newest learning state from the backend.
-   *
-   * This means:
-   * Chat with Mirai
-   * → backend updates learning
-   * → open Profile
-   * → Profile requests fresh data
-   * → numbers change.
-   */
   useFocusEffect(
     useCallback(() => {
       loadProfile();
     }, [loadProfile])
   );
 
-  const progress = profile ? getProgress(profile) : 0;
+  const progress = profile
+    ? getProgress(profile)
+    : 0;
 
   const level = getCEFR(progress);
   const nextLevel = getNextLevel(level);
-  const levelProgress = getLevelProgress(progress, level);
+
+  const levelProgress = getLevelProgress(
+    progress,
+    level
+  );
 
   const goal =
     profile?.analysis?.goal?.goal ??
@@ -235,8 +274,6 @@ export default function ProfileScreen() {
       ? profile.analysis.state.confidence
       : 0
   );
-
-  const confidenceLabel = getConfidenceLabel(confidence);
 
   const difficulty = getDifficultyLabel(
     profile?.analysis?.difficulty?.difficulty
@@ -282,6 +319,8 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <>
+          {/* PROFILE */}
+
           <View style={styles.profileCard}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
@@ -303,6 +342,8 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+
+          {/* LEVEL */}
 
           <Text style={styles.sectionTitle}>
             Your level
@@ -357,6 +398,8 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
+          {/* PROGRESS */}
+
           <Text style={styles.sectionTitle}>
             Your progress
           </Text>
@@ -396,6 +439,8 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* LEARNING STATE */}
+
           <Text style={styles.sectionTitle}>
             Learning state
           </Text>
@@ -408,7 +453,7 @@ export default function ProfileScreen() {
                 </Text>
 
                 <Text style={styles.stateTitle}>
-                  {confidenceLabel}
+                  {getConfidenceLabel(confidence)}
                 </Text>
               </View>
 
@@ -433,6 +478,8 @@ export default function ProfileScreen() {
               based on how you are progressing.
             </Text>
           </View>
+
+          {/* PREFERENCES */}
 
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceCard}>
@@ -469,6 +516,8 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* GOAL */}
+
           <Text style={styles.sectionTitle}>
             Current goal
           </Text>
@@ -495,6 +544,8 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+
+          {/* SETTINGS */}
 
           <Text style={styles.sectionTitle}>
             App
@@ -559,10 +610,10 @@ const styles = StyleSheet.create({
   },
 
   errorText: {
-    fontSize: 13,
-    color: "#8E858A",
     marginTop: 6,
+    fontSize: 13,
     lineHeight: 19,
+    color: "#8E858A",
   },
 
   retryButton: {
@@ -608,9 +659,9 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
+    marginTop: 4,
     fontSize: 14,
     color: "#8E858A",
-    marginTop: 4,
   },
 
   profileBadge: {
@@ -628,10 +679,10 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
+    marginBottom: 12,
     fontSize: 18,
     fontWeight: "700",
     color: "#292529",
-    marginBottom: 12,
   },
 
   levelCard: {
@@ -650,11 +701,11 @@ const styles = StyleSheet.create({
   },
 
   levelLabel: {
+    marginBottom: 3,
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.7,
     color: "#8E858A",
-    marginBottom: 3,
   },
 
   level: {
@@ -678,10 +729,10 @@ const styles = StyleSheet.create({
 
   progressBackground: {
     height: 8,
+    marginTop: 15,
     borderRadius: 4,
     backgroundColor: "#F0E6EA",
     overflow: "hidden",
-    marginTop: 15,
   },
 
   progress: {
@@ -692,8 +743,8 @@ const styles = StyleSheet.create({
 
   levelFooter: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 8,
   },
 
@@ -709,10 +760,10 @@ const styles = StyleSheet.create({
   },
 
   description: {
+    marginTop: 8,
     fontSize: 13,
     lineHeight: 18,
     color: "#8E858A",
-    marginTop: 8,
   },
 
   statsRow: {
@@ -722,12 +773,12 @@ const styles = StyleSheet.create({
 
   statCard: {
     flex: 1,
+    alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#F1ECEF",
     paddingVertical: 17,
-    alignItems: "center",
   },
 
   statCardSecond: {
@@ -735,8 +786,8 @@ const styles = StyleSheet.create({
   },
 
   statIcon: {
-    fontSize: 19,
     marginBottom: 5,
+    fontSize: 19,
   },
 
   statValue: {
@@ -746,9 +797,9 @@ const styles = StyleSheet.create({
   },
 
   statLabel: {
+    marginTop: 3,
     fontSize: 12,
     color: "#8E858A",
-    marginTop: 3,
   },
 
   stateCard: {
@@ -774,10 +825,10 @@ const styles = StyleSheet.create({
   },
 
   stateTitle: {
+    marginTop: 3,
     fontSize: 17,
     fontWeight: "700",
     color: "#292529",
-    marginTop: 3,
   },
 
   stateValue: {
@@ -787,10 +838,10 @@ const styles = StyleSheet.create({
   },
 
   stateDescription: {
+    marginTop: 10,
     fontSize: 12,
     lineHeight: 17,
     color: "#8E858A",
-    marginTop: 10,
   },
 
   preferenceRow: {
@@ -810,8 +861,8 @@ const styles = StyleSheet.create({
   },
 
   preferenceIcon: {
-    fontSize: 20,
     marginBottom: 9,
+    fontSize: 20,
   },
 
   preferenceLabel: {
@@ -822,10 +873,10 @@ const styles = StyleSheet.create({
   },
 
   preferenceValue: {
+    marginTop: 3,
     fontSize: 15,
     fontWeight: "600",
     color: "#292529",
-    marginTop: 3,
   },
 
   goalCard: {
@@ -863,17 +914,17 @@ const styles = StyleSheet.create({
   },
 
   goalTitle: {
+    marginTop: 3,
     fontSize: 17,
     fontWeight: "700",
     color: "#292529",
-    marginTop: 3,
   },
 
   goalDescription: {
+    marginTop: 3,
     fontSize: 12,
     lineHeight: 17,
     color: "#8E858A",
-    marginTop: 3,
   },
 
   settingsButton: {
@@ -916,14 +967,14 @@ const styles = StyleSheet.create({
   },
 
   settingsDescription: {
+    marginTop: 3,
     fontSize: 12,
     color: "#8E858A",
-    marginTop: 3,
   },
 
   arrow: {
+    marginLeft: 10,
     fontSize: 28,
     color: "#B7ADB2",
-    marginLeft: 10,
   },
 });
