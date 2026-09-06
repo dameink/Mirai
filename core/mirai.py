@@ -1,6 +1,6 @@
 from core.analyzer import analyze_message
 from core.brain import get_mirai_state
-
+from core.personality import get_personality
 from core.decision import make_decision
 from core.response_plan import create_response_plan
 from core.response import generate_response
@@ -297,6 +297,8 @@ def chat(
             user_id=user_id,
             db=db,
         ),
+
+        "personality": get_personality(),
 
         "learning": learning_context.learning.get_profile(),
     }

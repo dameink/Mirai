@@ -23,20 +23,19 @@ class SkillUpdateSystem:
     def update_from_evidence(self, evidences):
         """
         Apply a list of Evidence objects.
-
-        Each evidence contains an observed performance value
-        and a certainty describing how reliable the observation is.
         """
 
         updates = []
+
+        if not evidences:
+            self.learner.calculate_overall_level()
+            return updates
 
         for evidence in evidences:
             if evidence is None:
                 continue
 
-            result = self.update_skill_from_evidence(
-                evidence
-            )
+            result = self.update_skill_from_evidence(evidence)
 
             if result is not None:
                 updates.append(result)
@@ -51,34 +50,41 @@ class SkillUpdateSystem:
 
     def update_skill_from_evidence(self, evidence):
         """
-        Update one skill using learning evidence.
-
-        The learner's skill moves toward the observed value.
-        Certainty controls how strongly the observation affects
-        the learner model.
+        Update one learner skill from one Evidence object.
         """
 
-        category = evidence.category
-        skill_name = evidence.skill
+        if evidence is None:
+            return None
+
+        category = getattr(evidence, "category", None)
+        skill_name = getattr(evidence, "skill", None)
+
+        if not category or not skill_name:
+            return None
+
+        # ---------------------------------
+        # Find the learner skill
+        # ---------------------------------
 
         skill = self.learner.get_skill(
             category,
             skill_name
         )
 
+        # If the skill does not exist, do not
+        # silently pretend that an update happened.
         if skill is None:
             return None
 
-        old_value = skill.get(
-            "value",
-            0
+        old_value = float(
+            skill.get("value", 0)
         )
 
         observed_value = max(
             0,
             min(
                 100,
-                evidence.value
+                float(getattr(evidence, "value", 0))
             )
         )
 
@@ -86,17 +92,15 @@ class SkillUpdateSystem:
             0,
             min(
                 100,
-                evidence.certainty
+                float(getattr(evidence, "certainty", 0))
             )
         )
 
-        # =================================
+        # ---------------------------------
         # Calculate adjustment
-        # =================================
+        # ---------------------------------
 
-        difference = (
-            observed_value - old_value
-        )
+        difference = observed_value - old_value
 
         adjustment = (
             difference
@@ -107,28 +111,30 @@ class SkillUpdateSystem:
         if abs(adjustment) < 0.01:
             adjustment = 0
 
-        new_value = max(
-            0,
-            min(
-                100,
-                old_value + adjustment
-            )
-        )
-
-        # =================================
+        # ---------------------------------
         # Update learner
-        # =================================
+        # ---------------------------------
 
-        self.learner.update_skill(
+        updated_skill = self.learner.update_skill(
             category,
             skill_name,
             adjustment,
             certainty
         )
 
-        # =================================
-        # Return update information
-        # =================================
+        # Get the actual state after update.
+        current_skill = self.learner.get_skill(
+            category,
+            skill_name
+        )
+
+        if current_skill is None:
+            return None
+
+        new_value = current_skill.get(
+            "value",
+            old_value
+        )
 
         return {
             "category": category,
@@ -137,9 +143,28 @@ class SkillUpdateSystem:
             "observed_value": observed_value,
             "new_value": new_value,
             "adjustment": adjustment,
-            "certainty": certainty,
-            "source": evidence.source,
-            "type": evidence.type,
+            "certainty": current_skill.get(
+                "certainty",
+                0
+            ),
+            "evidence_count": current_skill.get(
+                "evidence_count",
+                0
+            ),
+            "trend": current_skill.get(
+                "trend",
+                0
+            ),
+            "source": getattr(
+                evidence,
+                "source",
+                "conversation"
+            ),
+            "type": getattr(
+                evidence,
+                "type",
+                "conversation"
+            ),
         }
 
     # =================================
@@ -155,11 +180,6 @@ class SkillUpdateSystem:
     ):
         """
         Direct low-level skill update.
-
-        Used for system events such as learning_progress.
-
-        Normal performance evidence should use
-        update_from_evidence().
         """
 
         skill_data = self.learner.get_skill(
@@ -187,20 +207,35 @@ class SkillUpdateSystem:
             skill
         )
 
+        if updated_skill is None:
+            return None
+
         return {
             "category": category,
             "skill": skill,
             "old_value": old_value,
-            "new_value": updated_skill["value"],
+            "new_value": updated_skill.get(
+                "value",
+                old_value
+            ),
             "adjustment": (
-                updated_skill["value"]
-                - old_value
+                updated_skill.get(
+                    "value",
+                    old_value
+                ) - old_value
             ),
-            "certainty": updated_skill["certainty"],
-            "evidence_count": (
-                updated_skill["evidence_count"]
+            "certainty": updated_skill.get(
+                "certainty",
+                0
             ),
-            "trend": updated_skill["trend"],
+            "evidence_count": updated_skill.get(
+                "evidence_count",
+                0
+            ),
+            "trend": updated_skill.get(
+                "trend",
+                0
+            ),
         }
 
     # =================================
@@ -213,7 +248,7 @@ class SkillUpdateSystem:
         skill
     ):
         """
-        Return the current state of one skill.
+        Return current state of one skill.
         """
 
         skill_data = self.learner.get_skill(

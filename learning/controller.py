@@ -11,6 +11,7 @@ from learning.feedback import FeedbackSystem
 from learning.adaptation import Adaptation
 from learning.memory_analysis import MemoryAnalysis
 from learning.goal_detector import GoalDetector
+from learning.conversation_assessment import ConversationAssessment
 from learning.learning_events import (
     detect_learning_event,
     detect_learning_goal
@@ -48,6 +49,12 @@ class LearningController:
     ):
 
         self.learner = learner
+
+        self.conversation_assessment = ConversationAssessment(
+            learner
+        )
+
+        self.history = []
 
         # =========================
         # Use learner memory
@@ -129,6 +136,55 @@ class LearningController:
             state=self.state
         )
 
+
+    def process_message(self, message, context=None):
+        print("🔥 LEARNING USER ID:", self.learner.user_id)
+        context = context or {}
+
+        print("\n========== LEARNING DEBUG ==========")
+        print("MESSAGE:", repr(message))
+
+        event = detect_learning_event(message)
+        print("EVENT:", event)
+
+        evidences = self.conversation_assessment.assess(message)
+        print("EVIDENCE COUNT:", len(evidences))
+
+        for evidence in evidences:
+            print(
+                "EVIDENCE:",
+                evidence.category,
+                evidence.skill,
+                evidence.value,
+                evidence.certainty,
+            )
+
+        updates = self.updater.update_from_evidence(evidences)
+
+        print("UPDATES:", updates)
+
+        self.learner.memory_storage.save(self.memory)
+
+        print(
+            "FLUENCY AFTER:",
+            self.learner.get_skill(
+                "speaking",
+                "fluency"
+            )
+        )
+
+        print("====================================\n")
+
+        return {
+            "event": event,
+            "evidence": [
+                evidence.get_data()
+                for evidence in evidences
+            ],
+            "updates": updates,
+            "profile": self.get_learning_profile(),
+            "strategy": self.get_next_strategy(),
+        }
 
     # =================================
     # Analyze learner

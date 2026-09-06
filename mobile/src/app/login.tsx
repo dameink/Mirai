@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,9 +21,9 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [focusedField, setFocusedField] = useState<"email" | "password" | null>(
-    null
-  );
+  const [focusedField, setFocusedField] = useState<
+    "email" | "password" | null
+  >(null);
 
   const handleSubmit = async () => {
     setError("");
@@ -44,7 +44,7 @@ export default function LoginScreen() {
         await login(trimmedEmail, password);
       }
 
-      router.replace("/chat");
+      router.replace("/(tabs)/chat");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Authentication failed"
@@ -63,154 +63,166 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View style={styles.container}>
-        <View style={styles.brand}>
-          <Text style={styles.sakura}>🌸</Text>
-          <Text style={styles.title}>Mirai</Text>
-          <Text style={styles.subtitle}>
-            {isRegister
-              ? "Start your journey with Mirai"
-              : "Welcome back"}
-          </Text>
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
+          <View style={styles.brand}>
+            <Text style={styles.sakura}>🌸</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.heading}>
-            {isRegister ? "Create your account" : "Sign in"}
-          </Text>
+            <Text style={styles.title}>Mirai</Text>
 
-          <Text style={styles.description}>
-            {isRegister
-              ? "Create an account to begin your language journey."
-              : "Continue your language journey with Mirai."}
-          </Text>
+            <Text style={styles.subtitle}>
+              {isRegister
+                ? "Start your journey with Mirai"
+                : "Welcome back"}
+            </Text>
+          </View>
 
-          <View style={styles.form}>
-            <View>
-              <Text style={styles.label}>Email</Text>
+          <View style={styles.card}>
+            <Text style={styles.heading}>
+              {isRegister ? "Create your account" : "Sign in"}
+            </Text>
 
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedField === "email" && styles.inputFocused,
-                  error && styles.inputError,
-                ]}
-                placeholder="Enter your email"
-                placeholderTextColor="#B4A69E"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (error) setError("");
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                onFocus={() => setFocusedField("email")}
-                onBlur={() => setFocusedField(null)}
-                editable={!loading}
-              />
-            </View>
+            <Text style={styles.description}>
+              {isRegister
+                ? "Create an account to begin your language journey."
+                : "Continue your language journey with Mirai."}
+            </Text>
 
-            <View>
-              <Text style={styles.label}>Password</Text>
+            <View style={styles.form}>
+              <View>
+                <Text style={styles.label}>Email</Text>
 
-              <View
-                style={[
-                  styles.passwordContainer,
-                  focusedField === "password" && styles.inputFocused,
-                  error && styles.inputError,
-                ]}
-              >
                 <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Enter your password"
+                  style={[
+                    styles.input,
+                    focusedField === "email" && styles.inputFocused,
+                    error && styles.inputError,
+                  ]}
+                  placeholder="Enter your email"
                   placeholderTextColor="#B4A69E"
-                  value={password}
+                  value={email}
                   onChangeText={(text) => {
-                    setPassword(text);
+                    setEmail(text);
                     if (error) setError("");
                   }}
-                  secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  textContentType="password"
-                  onFocus={() => setFocusedField("password")}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  onFocus={() => setFocusedField("email")}
                   onBlur={() => setFocusedField(null)}
                   editable={!loading}
                 />
+              </View>
 
-                <Pressable
-                  onPress={() => setShowPassword((current) => !current)}
-                  style={styles.showButton}
-                  disabled={loading}
+              <View>
+                <Text style={styles.label}>Password</Text>
+
+                <View
+                  style={[
+                    styles.passwordContainer,
+                    focusedField === "password" && styles.inputFocused,
+                    error && styles.inputError,
+                  ]}
                 >
-                  <Text style={styles.showText}>
-                    {showPassword ? "Hide" : "Show"}
-                  </Text>
-                </Pressable>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#B4A69E"
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (error) setError("");
+                    }}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
+                    onFocus={() => setFocusedField("password")}
+                    onBlur={() => setFocusedField(null)}
+                    editable={!loading}
+                  />
+
+                  <Pressable
+                    onPress={() =>
+                      setShowPassword((current) => !current)
+                    }
+                    style={styles.showButton}
+                    disabled={loading}
+                  >
+                    <Text style={styles.showText}>
+                      {showPassword ? "Hide" : "Show"}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
 
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                pressed && styles.buttonPressed,
+                loading && styles.buttonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading
+                  ? isRegister
+                    ? "Creating account..."
+                    : "Signing in..."
+                  : isRegister
+                  ? "Create account"
+                  : "Login"}
+              </Text>
+            </Pressable>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+
+              <Text style={styles.dividerText}>or</Text>
+
+              <View style={styles.dividerLine} />
             </View>
-          ) : null}
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-              loading && styles.buttonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading
-                ? isRegister
-                  ? "Creating account..."
-                  : "Signing in..."
-                : isRegister
-                ? "Create account"
-                : "Login"}
-            </Text>
-          </Pressable>
+            <Pressable
+              onPress={toggleMode}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.switchButton,
+                pressed && styles.switchPressed,
+              ]}
+            >
+              <Text style={styles.switchQuestion}>
+                {isRegister
+                  ? "Already have an account?"
+                  : "Don't have an account?"}
+              </Text>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+              <Text style={styles.switchAction}>
+                {isRegister ? "Login" : "Create account"}
+              </Text>
+            </Pressable>
           </View>
 
-          <Pressable
-            onPress={toggleMode}
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.switchButton,
-              pressed && styles.switchPressed,
-            ]}
-          >
-            <Text style={styles.switchQuestion}>
-              {isRegister
-                ? "Already have an account?"
-                : "Don't have an account?"}
-            </Text>
-
-            <Text style={styles.switchAction}>
-              {isRegister ? "Login" : "Create account"}
-            </Text>
-          </Pressable>
+          <Text style={styles.footer}>
+            Learn languages. Build memories. Grow with Mirai.
+          </Text>
         </View>
-
-        <Text style={styles.footer}>
-          Learn languages. Build memories. Grow with Mirai.
-        </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -219,6 +231,12 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#F7F0E6",
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 24,
   },
 
   container: {

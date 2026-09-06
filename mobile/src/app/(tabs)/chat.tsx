@@ -49,14 +49,10 @@ function AnimatedPressable({
   style?: any;
   disabled?: boolean;
 }) {
-  const scale = useRef(
-    new Animated.Value(1)
-  ).current;
+  const scale = useRef(new Animated.Value(1)).current;
 
   const pressIn = () => {
-    if (disabled) {
-      return;
-    }
+    if (disabled) return;
 
     Animated.spring(scale, {
       toValue: 0.96,
@@ -80,11 +76,7 @@ function AnimatedPressable({
       style={[
         style,
         {
-          transform: [
-            {
-              scale,
-            },
-          ],
+          transform: [{ scale }],
         },
       ]}
     >
@@ -105,29 +97,13 @@ function AnimatedPressable({
    ========================================================= */
 
 function TypingIndicator() {
-  const dot1 = useRef(
-    new Animated.Value(0.3)
-  ).current;
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
 
-  const dot2 = useRef(
-    new Animated.Value(0.3)
-  ).current;
-
-  const dot3 = useRef(
-    new Animated.Value(0.3)
-  ).current;
-
-  const translate1 = useRef(
-    new Animated.Value(0)
-  ).current;
-
-  const translate2 = useRef(
-    new Animated.Value(0)
-  ).current;
-
-  const translate3 = useRef(
-    new Animated.Value(0)
-  ).current;
+  const translate1 = useRef(new Animated.Value(0)).current;
+  const translate2 = useRef(new Animated.Value(0)).current;
+  const translate3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const animateDot = (
@@ -174,23 +150,9 @@ function TypingIndicator() {
       );
     };
 
-    const animation1 = animateDot(
-      dot1,
-      translate1,
-      0
-    );
-
-    const animation2 = animateDot(
-      dot2,
-      translate2,
-      150
-    );
-
-    const animation3 = animateDot(
-      dot3,
-      translate3,
-      300
-    );
+    const animation1 = animateDot(dot1, translate1, 0);
+    const animation2 = animateDot(dot2, translate2, 150);
+    const animation3 = animateDot(dot3, translate3, 300);
 
     animation1.start();
     animation2.start();
@@ -218,11 +180,7 @@ function TypingIndicator() {
             styles.typingDot,
             {
               opacity: dot1,
-              transform: [
-                {
-                  translateY: translate1,
-                },
-              ],
+              transform: [{ translateY: translate1 }],
             },
           ]}
         />
@@ -232,11 +190,7 @@ function TypingIndicator() {
             styles.typingDot,
             {
               opacity: dot2,
-              transform: [
-                {
-                  translateY: translate2,
-                },
-              ],
+              transform: [{ translateY: translate2 }],
             },
           ]}
         />
@@ -246,11 +200,7 @@ function TypingIndicator() {
             styles.typingDot,
             {
               opacity: dot3,
-              transform: [
-                {
-                  translateY: translate3,
-                },
-              ],
+              transform: [{ translateY: translate3 }],
             },
           ]}
         />
@@ -268,17 +218,9 @@ function AnimatedMessage({
 }: {
   message: Message;
 }) {
-  const opacity = useRef(
-    new Animated.Value(0)
-  ).current;
-
-  const translateY = useRef(
-    new Animated.Value(8)
-  ).current;
-
-  const scale = useRef(
-    new Animated.Value(0.98)
-  ).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(8)).current;
+  const scale = useRef(new Animated.Value(0.98)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -310,20 +252,15 @@ function AnimatedMessage({
       style={{
         opacity,
         transform: [
-          {
-            translateY,
-          },
-          {
-            scale,
-          },
+          { translateY },
+          { scale },
         ],
       }}
     >
       <View
         style={[
           styles.messageRow,
-          message.sender === "user" &&
-            styles.userRow,
+          message.sender === "user" && styles.userRow,
         ]}
       >
         <View
@@ -345,9 +282,7 @@ function AnimatedMessage({
 
           {message.timestamp && (
             <Text style={styles.timestamp}>
-              {new Date(
-                message.timestamp
-              ).toLocaleTimeString([], {
+              {new Date(message.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
@@ -364,40 +299,18 @@ function AnimatedMessage({
    ========================================================= */
 
 export default function ChatScreen() {
-  const [message, setMessage] =
-    useState("");
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
-  const [messages, setMessages] =
-    useState<Message[]>([]);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const [isSending, setIsSending] =
-    useState(false);
-
-  const [menuVisible, setMenuVisible] =
-    useState(false);
-
-  const scrollViewRef =
-    useRef<ScrollView>(null);
-
-  const menuOpacity = useRef(
-    new Animated.Value(0)
-  ).current;
-
-  const menuScale = useRef(
-    new Animated.Value(0.94)
-  ).current;
-
-  const backdropOpacity = useRef(
-    new Animated.Value(0)
-  ).current;
-
-  const thinkingOpacity = useRef(
-    new Animated.Value(0.55)
-  ).current;
-
-  const sendScale = useRef(
-    new Animated.Value(1)
-  ).current;
+  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const menuScale = useRef(new Animated.Value(0.94)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const thinkingOpacity = useRef(new Animated.Value(0.55)).current;
+  const sendScale = useRef(new Animated.Value(1)).current;
 
   const {
     language,
@@ -421,44 +334,30 @@ export default function ChatScreen() {
       return;
     }
 
-    const animation =
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(
-            thinkingOpacity,
-            {
-              toValue: 1,
-              duration: 700,
-              easing: Easing.inOut(
-                Easing.ease
-              ),
-              useNativeDriver: true,
-            }
-          ),
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(thinkingOpacity, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
 
-          Animated.timing(
-            thinkingOpacity,
-            {
-              toValue: 0.55,
-              duration: 700,
-              easing: Easing.inOut(
-                Easing.ease
-              ),
-              useNativeDriver: true,
-            }
-          ),
-        ])
-      );
+        Animated.timing(thinkingOpacity, {
+          toValue: 0.55,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
 
     animation.start();
 
     return () => {
       animation.stop();
     };
-  }, [
-    isSending,
-    thinkingOpacity,
-  ]);
+  }, [isSending, thinkingOpacity]);
 
   /* =======================================================
      MENU ANIMATION
@@ -473,14 +372,11 @@ export default function ChatScreen() {
           useNativeDriver: true,
         }),
 
-        Animated.timing(
-          backdropOpacity,
-          {
-            toValue: 0,
-            duration: 150,
-            useNativeDriver: true,
-          }
-        ),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
 
         Animated.timing(menuScale, {
           toValue: 0.94,
@@ -496,23 +392,16 @@ export default function ChatScreen() {
       Animated.timing(menuOpacity, {
         toValue: 1,
         duration: 180,
-        easing: Easing.out(
-          Easing.ease
-        ),
+        easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
 
-      Animated.timing(
-        backdropOpacity,
-        {
-          toValue: 1,
-          duration: 180,
-          easing: Easing.out(
-            Easing.ease
-          ),
-          useNativeDriver: true,
-        }
-      ),
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
 
       Animated.spring(menuScale, {
         toValue: 1,
@@ -533,72 +422,46 @@ export default function ChatScreen() {
      ======================================================= */
 
   useEffect(() => {
-    const loadConversation =
-      async () => {
-        try {
-          const response =
-            await authFetch(
-              "/conversation"
-            );
+    const loadConversation = async () => {
+      try {
+        const response = await authFetch("/conversation");
 
-          if (!response.ok) {
-            throw new Error(
-              "Failed to load conversation"
-            );
-          }
-
-          const data: {
-            role:
-              | "user"
-              | "assistant";
-
-            content: string;
-
-            timestamp?: string;
-          }[] =
-            await response.json();
-
-          const loadedMessages:
-            Message[] =
-            data.map(
-              (
-                item,
-                index
-              ) => ({
-                id: index + 1,
-
-                text:
-                  item.content,
-
-                sender:
-                  item.role ===
-                  "user"
-                    ? "user"
-                    : "mirai",
-
-                timestamp:
-                  item.timestamp,
-              })
-            );
-
-          setMessages(
-            loadedMessages
-          );
-
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd(
-              {
-                animated: false,
-              }
-            );
-          }, 100);
-        } catch (error) {
-          console.error(
-            "Failed to load conversation:",
-            error
-          );
+        if (!response.ok) {
+          throw new Error("Failed to load conversation");
         }
-      };
+
+        const data: {
+          role: "user" | "assistant";
+          content: string;
+          timestamp?: string;
+        }[] = await response.json();
+
+        const loadedMessages: Message[] = data.map(
+          (item, index) => ({
+            id: index + 1,
+            text: item.content,
+            sender:
+              item.role === "user"
+                ? "user"
+                : "mirai",
+            timestamp: item.timestamp,
+          })
+        );
+
+        setMessages(loadedMessages);
+
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({
+            animated: false,
+          });
+        }, 100);
+      } catch (error) {
+        console.error(
+          "Failed to load conversation:",
+          error
+        );
+      }
+    };
 
     loadConversation();
   }, []);
@@ -608,9 +471,7 @@ export default function ChatScreen() {
      ======================================================= */
 
   useEffect(() => {
-    if (messages.length === 0) {
-      return;
-    }
+    if (messages.length === 0) return;
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({
@@ -623,280 +484,214 @@ export default function ChatScreen() {
      SEND MESSAGE
      ======================================================= */
 
-  const sendMessage =
-    async () => {
-      const trimmedMessage =
-        message.trim();
+  const sendMessage = async () => {
+    const trimmedMessage = message.trim();
 
-      if (
-        !trimmedMessage ||
-        isSending
-      ) {
-        return;
+    if (!trimmedMessage || isSending) {
+      return;
+    }
+
+    Animated.sequence([
+      Animated.spring(sendScale, {
+        toValue: 0.88,
+        useNativeDriver: true,
+        speed: 35,
+        bounciness: 2,
+      }),
+
+      Animated.spring(sendScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 25,
+        bounciness: 5,
+      }),
+    ]).start();
+
+    const newMessage: Message = {
+      id: Date.now(),
+      text: trimmedMessage,
+      sender: "user",
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      newMessage,
+    ]);
+
+    setMessage("");
+    setIsSending(true);
+
+    try {
+      const response = await authFetch("/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: trimmedMessage,
+          language,
+          mode,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Mirai server returned ${response.status}`
+        );
       }
 
-      Animated.sequence([
-        Animated.spring(sendScale, {
-          toValue: 0.88,
-          useNativeDriver: true,
-          speed: 35,
-          bounciness: 2,
-        }),
+      const data: ChatResponse =
+        await response.json();
 
-        Animated.spring(sendScale, {
-          toValue: 1,
-          useNativeDriver: true,
-          speed: 25,
-          bounciness: 5,
-        }),
-      ]).start();
+      if (!data.response) {
+        throw new Error(
+          "Mirai returned an empty response"
+        );
+      }
 
-      const newMessage:
-        Message = {
-        id: Date.now(),
-
-        text:
-          trimmedMessage,
-
-        sender: "user",
-
-        timestamp:
-          new Date().toISOString(),
+      const miraiMessage: Message = {
+        id: Date.now() + 1,
+        text: data.response,
+        sender: "mirai",
+        timestamp: new Date().toISOString(),
       };
 
-      setMessages(
-        (currentMessages) => [
-          ...currentMessages,
-          newMessage,
-        ]
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        miraiMessage,
+      ]);
+    } catch (error) {
+      console.error(
+        "Failed to send message:",
+        error
       );
 
-      setMessage("");
-
-      setIsSending(true);
-
-      try {
-        const response =
-          await authFetch(
-            "/chat",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body:
-                JSON.stringify({
-                  message:
-                    trimmedMessage,
-
-                  language:
-                    language,
-
-                  mode:
-                    mode,
-                }),
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `Mirai server returned ${response.status}`
-          );
-        }
-
-        const data:
-          ChatResponse =
-          await response.json();
-
-        if (!data.response) {
-          throw new Error(
-            "Mirai returned an empty response"
-          );
-        }
-
-        const miraiMessage:
-          Message = {
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        {
           id: Date.now() + 1,
-
           text:
-            data.response,
-
+            "I can’t connect right now. Please try again.",
           sender: "mirai",
+        },
+      ]);
+    } finally {
+      setIsSending(false);
 
-          timestamp:
-            new Date().toISOString(),
-        };
-
-        setMessages(
-          (currentMessages) => [
-            ...currentMessages,
-            miraiMessage,
-          ]
-        );
-      } catch (error) {
-        console.error(
-          "Failed to send message:",
-          error
-        );
-
-        setMessages(
-          (currentMessages) => [
-            ...currentMessages,
-
-            {
-              id:
-                Date.now() + 1,
-
-              text:
-                "I can’t connect right now. Please try again.",
-
-              sender:
-                "mirai",
-            },
-          ]
-        );
-      } finally {
-        setIsSending(false);
-
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd(
-            {
-              animated: true,
-            }
-          );
-        }, 100);
-      }
-    };
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({
+          animated: true,
+        });
+      }, 100);
+    }
+  };
 
   /* =======================================================
      NEW CONVERSATION
      ======================================================= */
 
-  const newConversation =
-    async () => {
-      if (isSending) {
-        return;
-      }
+  const newConversation = async () => {
+    if (isSending) return;
 
-      try {
-        const response =
-          await authFetch(
-            "/conversation",
-            {
-              method: "DELETE",
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to start new conversation: ${response.status}`
-          );
+    try {
+      const response = await authFetch(
+        "/conversation",
+        {
+          method: "DELETE",
         }
+      );
 
-        setMessages([]);
-
-        setMessage("");
-
-        setMenuVisible(false);
-      } catch (error) {
-        console.error(
-          "Failed to start new conversation:",
-          error
+      if (!response.ok) {
+        throw new Error(
+          `Failed to start new conversation: ${response.status}`
         );
       }
-    };
+
+      setMessages([]);
+      setMessage("");
+      setMenuVisible(false);
+    } catch (error) {
+      console.error(
+        "Failed to start new conversation:",
+        error
+      );
+    }
+  };
 
   /* =======================================================
      CLEAR CONVERSATION
      ======================================================= */
 
-  const clearConversation =
-    async () => {
-      if (isSending) {
-        return;
-      }
+  const clearConversation = async () => {
+    if (isSending) return;
 
-      try {
-        const response =
-          await authFetch(
-            "/conversation",
-            {
-              method: "DELETE",
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to clear conversation: ${response.status}`
-          );
+    try {
+      const response = await authFetch(
+        "/conversation",
+        {
+          method: "DELETE",
         }
+      );
 
-        setMessages([]);
-
-        setMessage("");
-
-        setMenuVisible(false);
-      } catch (error) {
-        console.error(
-          "Failed to clear conversation:",
-          error
+      if (!response.ok) {
+        throw new Error(
+          `Failed to clear conversation: ${response.status}`
         );
       }
-    };
+
+      setMessages([]);
+      setMessage("");
+      setMenuVisible(false);
+    } catch (error) {
+      console.error(
+        "Failed to clear conversation:",
+        error
+      );
+    }
+  };
 
   /* =======================================================
      RESET MIRAI
      ======================================================= */
 
-  const resetMirai =
-    async () => {
-      if (isSending) {
-        return;
-      }
+  const resetMirai = async () => {
+    if (isSending) return;
 
-      try {
-        const response =
-          await authFetch(
-            "/reset",
-            {
-              method: "DELETE",
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to reset Mirai: ${response.status}`
-          );
+    try {
+      const response = await authFetch(
+        "/reset",
+        {
+          method: "DELETE",
         }
+      );
 
-        setMessages([]);
-
-        setMessage("");
-
-        setMenuVisible(false);
-      } catch (error) {
-        console.error(
-          "Failed to reset Mirai:",
-          error
+      if (!response.ok) {
+        throw new Error(
+          `Failed to reset Mirai: ${response.status}`
         );
       }
-    };
+
+      setMessages([]);
+      setMessage("");
+      setMenuVisible(false);
+    } catch (error) {
+      console.error(
+        "Failed to reset Mirai:",
+        error
+      );
+    }
+  };
 
   /* =======================================================
      QUICK REPLY
      ======================================================= */
 
-  const sendQuickReply =
-    (text: string) => {
-      if (isSending) {
-        return;
-      }
+  const sendQuickReply = (text: string) => {
+    if (isSending) return;
 
-      setMessage(text);
-    };
+    setMessage(text);
+  };
 
   /* =======================================================
      CLOSE MENU
@@ -916,19 +711,15 @@ export default function ChatScreen() {
       behavior={
         Platform.OS === "ios"
           ? "height"
-          : undefined
+          : "padding"
       }
       keyboardVerticalOffset={0}
     >
-      {/* =================================================
-          HEADER
-          ================================================= */}
+      {/* HEADER */}
 
       <View style={styles.header}>
         <View style={styles.miraiInfo}>
-          <Animated.View
-            style={styles.avatar}
-          >
+          <Animated.View style={styles.avatar}>
             <Text style={styles.avatarText}>
               🌸
             </Text>
@@ -946,10 +737,9 @@ export default function ChatScreen() {
                   isSending &&
                     styles.statusDotThinking,
                   {
-                    opacity:
-                      isSending
-                        ? thinkingOpacity
-                        : 1,
+                    opacity: isSending
+                      ? thinkingOpacity
+                      : 1,
                   },
                 ]}
               />
@@ -958,10 +748,9 @@ export default function ChatScreen() {
                 style={[
                   styles.status,
                   {
-                    opacity:
-                      isSending
-                        ? thinkingOpacity
-                        : 1,
+                    opacity: isSending
+                      ? thinkingOpacity
+                      : 1,
                   },
                 ]}
               >
@@ -984,9 +773,7 @@ export default function ChatScreen() {
         </AnimatedPressable>
       </View>
 
-      {/* =================================================
-          MENU
-          ================================================= */}
+      {/* MENU */}
 
       {menuVisible && (
         <View style={styles.menuOverlay}>
@@ -995,8 +782,7 @@ export default function ChatScreen() {
             style={[
               styles.menuBackdrop,
               {
-                opacity:
-                  backdropOpacity,
+                opacity: backdropOpacity,
               },
             ]}
           >
@@ -1010,13 +796,10 @@ export default function ChatScreen() {
             style={[
               styles.menuModal,
               {
-                opacity:
-                  menuOpacity,
-
+                opacity: menuOpacity,
                 transform: [
                   {
-                    scale:
-                      menuScale,
+                    scale: menuScale,
                   },
                 ],
               },
@@ -1039,9 +822,7 @@ export default function ChatScreen() {
               onPress={newConversation}
               disabled={isSending}
             >
-              <View
-                style={styles.menuAction}
-              >
+              <View style={styles.menuAction}>
                 <Text
                   style={
                     styles.menuActionIcon
@@ -1066,14 +847,10 @@ export default function ChatScreen() {
                 isSending &&
                   styles.menuActionDisabled,
               ]}
-              onPress={
-                clearConversation
-              }
+              onPress={clearConversation}
               disabled={isSending}
             >
-              <View
-                style={styles.menuAction}
-              >
+              <View style={styles.menuAction}>
                 <Text
                   style={[
                     styles.menuActionText,
@@ -1094,9 +871,7 @@ export default function ChatScreen() {
               onPress={resetMirai}
               disabled={isSending}
             >
-              <View
-                style={styles.menuAction}
-              >
+              <View style={styles.menuAction}>
                 <Text
                   style={[
                     styles.menuActionText,
@@ -1112,12 +887,8 @@ export default function ChatScreen() {
               style={styles.cancelButtonWrapper}
               onPress={closeMenu}
             >
-              <View
-                style={styles.cancelButton}
-              >
-                <Text
-                  style={styles.cancelText}
-                >
+              <View style={styles.cancelButton}>
+                <Text style={styles.cancelText}>
                   Cancel
                 </Text>
               </View>
@@ -1126,9 +897,7 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {/* =================================================
-          CHAT
-          ================================================= */}
+      {/* CHAT */}
 
       <ImageBackground
         source={require(
@@ -1142,21 +911,20 @@ export default function ChatScreen() {
           contentContainerStyle={
             styles.chatContent
           }
-          showsVerticalScrollIndicator={
-            false
-          }
+          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={
+            Platform.OS === "android"
+              ? "on-drag"
+              : "interactive"
+          }
         >
-          {/* =================================================
-              EMPTY STATE
-              ================================================= */}
+          {/* EMPTY STATE */}
 
           {messages.length === 0 && (
             <>
               <Animated.View
-                style={
-                  styles.messageRow
-                }
+                style={styles.messageRow}
               >
                 <View
                   style={
@@ -1179,9 +947,7 @@ export default function ChatScreen() {
               </Animated.View>
 
               <View
-                style={
-                  styles.quickReplies
-                }
+                style={styles.quickReplies}
               >
                 <AnimatedPressable
                   onPress={() =>
@@ -1252,22 +1018,16 @@ export default function ChatScreen() {
             </>
           )}
 
-          {/* =================================================
-              MESSAGES
-              ================================================= */}
+          {/* MESSAGES */}
 
-          {messages.map(
-            (item) => (
-              <AnimatedMessage
-                key={item.id}
-                message={item}
-              />
-            )
-          )}
+          {messages.map((item) => (
+            <AnimatedMessage
+              key={item.id}
+              message={item}
+            />
+          ))}
 
-          {/* =================================================
-              TYPING
-              ================================================= */}
+          {/* TYPING */}
 
           {isSending && (
             <View
@@ -1279,9 +1039,7 @@ export default function ChatScreen() {
         </ScrollView>
       </ImageBackground>
 
-      {/* =================================================
-          INPUT
-          ================================================= */}
+      {/* INPUT */}
 
       <View style={styles.inputArea}>
         <View
@@ -1291,16 +1049,12 @@ export default function ChatScreen() {
         >
           <TextInput
             value={message}
-            onChangeText={
-              setMessage
-            }
+            onChangeText={setMessage}
             placeholder="Message..."
             placeholderTextColor="#999"
             style={styles.input}
             returnKeyType="send"
-            onSubmitEditing={
-              sendMessage
-            }
+            onSubmitEditing={sendMessage}
             editable={!isSending}
           />
 
@@ -1322,9 +1076,7 @@ export default function ChatScreen() {
                 ) &&
                   styles.sendButtonDisabled,
               ]}
-              onPress={
-                sendMessage
-              }
+              onPress={sendMessage}
               disabled={
                 !message.trim() ||
                 isSending
@@ -1371,9 +1123,7 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {/* =================================================
-          BOTTOM NAVIGATION
-          ================================================= */}
+      {/* BOTTOM NAVIGATION */}
 
       <BottomNavigation
         activeRoute="chat"
@@ -1391,10 +1141,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFDFE",
   },
-
-  /* =======================================================
-     HEADER
-     ======================================================= */
 
   header: {
     height: 92,
@@ -1463,10 +1209,6 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
 
-  /* =======================================================
-     CHAT
-     ======================================================= */
-
   chat: {
     flex: 1,
   },
@@ -1527,10 +1269,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  /* =======================================================
-     TYPING
-     ======================================================= */
-
   typingBubble: {
     paddingHorizontal: 16,
     paddingVertical: 11,
@@ -1551,10 +1289,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: "#746B70",
   },
-
-  /* =======================================================
-     QUICK REPLIES
-     ======================================================= */
 
   quickReplies: {
     flexDirection: "row",
@@ -1578,10 +1312,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#D96B88",
   },
-
-  /* =======================================================
-     INPUT
-     ======================================================= */
 
   inputArea: {
     paddingHorizontal: 14,
@@ -1625,10 +1355,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 2,
   },
-
-  /* =======================================================
-     MENU
-     ======================================================= */
 
   menuOverlay: {
     position: "absolute",

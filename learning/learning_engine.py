@@ -11,6 +11,7 @@ from learning.feedback import FeedbackSystem
 from learning.adaptation import Adaptation
 from learning.memory_analysis import MemoryAnalysis
 from learning.goal_detector import GoalDetector
+from learning.conversation_assessment import ConversationAssessment
 from learning.learning_events import (
     detect_learning_event,
     detect_learning_goal
@@ -119,6 +120,10 @@ class LearningController:
         )
 
         self.updater = SkillUpdateSystem(
+            learner
+        )
+
+        self.conversation_assessment = ConversationAssessment(
             learner
         )
 
@@ -304,20 +309,16 @@ class LearningController:
         """
         Main entry point for learning-related user messages.
 
-        Detects:
-
-        - learning goal
-        - learning request
-        - exam preparation
-        - learning progress
-        - learning failure
-        - other learning events
+        Detects learning events and assesses ordinary
+        English conversation for persistent skill evidence.
         """
 
         if not message:
             return {
                 "event": None,
-                "goal": None
+                "goal": None,
+                "assessment": [],
+                "updates": []
             }
 
         goal = self.process_goal(
@@ -328,9 +329,29 @@ class LearningController:
             message
         )
 
+        # =================================================
+        # CONVERSATION ASSESSMENT
+        # =================================================
+
+        evidences = self.conversation_assessment.assess(
+            message
+        )
+
+        updates = []
+
+        if evidences:
+            updates = self.updater.update_from_evidence(
+                evidences
+            )
+
         return {
             "event": event,
-            "goal": goal
+            "goal": goal,
+            "assessment": [
+                evidence.get_data()
+                for evidence in evidences
+            ],
+            "updates": updates
         }
 
     # =====================================================

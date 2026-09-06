@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router/react-navigation";
+import { useFocusEffect } from "expo-router";
 import { SectionScreen } from "../../components/section-screen";
 import { authFetch } from "../../auth/auth";
 
@@ -17,47 +17,138 @@ type Skill = {
   trend?: number;
 };
 
-type SkillGroup = Record<string, Skill>;
-
 type LearningProfile = {
   learner?: {
-    skills?: Record<string, SkillGroup>;
+    identity?: {
+      name?: string;
+      native_language?: string;
+      learning_language?: string;
+      level?: string;
+    };
+
+    goals?: {
+      primary?: string | null;
+      secondary?: string[];
+    };
+
+    skills?: Record<string, Record<string, Skill>>;
+
+    learning_preferences?: {
+      preferred_activity?: string | null;
+      correction_preference?: string | null;
+      prefers_conversation?: boolean;
+      prefers_explanations?: boolean;
+      likes_corrections?: boolean;
+      correction_intensity?: number;
+    };
+
+    motivation?: {
+      consistency?: number;
+      effort?: number;
+      engagement?: number;
+    };
+
+    history?: unknown[];
+
+    memory?: {
+      identity?: {
+        name?: string;
+        native_language?: string;
+        learning_language?: string;
+        level?: string;
+      };
+      skills?: Record<string, unknown>;
+      errors?: unknown[];
+      completed_topics?: string[];
+      difficult_topics?: string[];
+      successful_methods?: string[];
+      patterns?: string[];
+      skill_history?: unknown[];
+      sessions?: unknown[];
+      goals?: unknown[];
+      preferences?: Record<string, unknown>;
+      events?: unknown[];
+      statistics?: {
+        total_sessions?: number;
+        total_minutes?: number;
+        streak?: number;
+      };
+    };
   };
 
   analysis?: {
     state?: {
+      level?: string;
+      motivation?: {
+        consistency?: number;
+        effort?: number;
+        engagement?: number;
+      };
       confidence?: number;
       weakest_skill?: {
-        category?: string;
-        skill?: string;
+        category?: string | null;
+        skill?: string | null;
         value?: number;
       };
-      [key: string]: unknown;
     };
 
     goal?: {
-      goal?: string;
+      goal?: string | null;
+      priorities?: string[];
+      preferred_modes?: string[];
     };
 
     mode?: {
       mode?: string;
+      description?: string;
+      intensity?: number;
+      focus?: string;
+      strategy_hint?: string;
     };
 
     difficulty?: {
       difficulty?: string;
+      score?: number;
+      description?: string;
     };
 
     activity?: {
       name?: string;
-      title?: string;
-      type?: string;
-      category?: string;
       skill?: string;
       subskill?: string;
+      type?: string;
+      difficulty?: string;
+      duration?: number;
+      description?: string;
     };
   };
 
-  sessions?: unknown[];
+  strategy?: {
+    focus?: {
+      reason?: string;
+      category?: string;
+      skill?: string;
+      score?: number;
+    };
+
+    activity?: string;
+    difficulty?: string;
+    correction?: string;
+    goal?: string;
+    reason?: string;
+  };
+
+  sessions?: Array<{
+    activity?: string;
+    score?: number;
+    result?: Record<string, number>;
+    scores?: Record<string, number>;
+    mistakes?: unknown[];
+  }>;
+};
+
+type StateResponse = {
+  learning?: LearningProfile;
 };
 
 type SkillItem = {
@@ -75,7 +166,7 @@ function clamp(value: number) {
 
 function formatTitle(value: unknown): string {
   if (value === null || value === undefined || value === "") {
-    return "Learning";
+    return "Unknown";
   }
 
   return String(value)
@@ -95,26 +186,30 @@ function getSkillList(profile: LearningProfile): SkillItem[] {
   Object.entries(skills).forEach(([category, categorySkills]) => {
     Object.entries(categorySkills || {}).forEach(
       ([skillName, skill]) => {
-        if (
-          typeof skill?.value === "number" &&
-          typeof skill?.evidence_count === "number" &&
-          skill.evidence_count > 0
-        ) {
-          result.push({
-            category,
-            skill: skillName,
-            value: clamp(skill.value),
-            certainty:
-              typeof skill.certainty === "number"
-                ? clamp(skill.certainty)
-                : 0,
-            evidence: skill.evidence_count,
-            trend:
-              typeof skill.trend === "number"
-                ? skill.trend
-                : 0,
-          });
+        if (!skill) {
+          return;
         }
+
+        result.push({
+          category,
+          skill: skillName,
+          value:
+            typeof skill.value === "number"
+              ? clamp(skill.value)
+              : 0,
+          certainty:
+            typeof skill.certainty === "number"
+              ? clamp(skill.certainty)
+              : 0,
+          evidence:
+            typeof skill.evidence_count === "number"
+              ? skill.evidence_count
+              : 0,
+          trend:
+            typeof skill.trend === "number"
+              ? skill.trend
+              : 0,
+        });
       }
     );
   });
@@ -128,10 +223,8 @@ function getProgress(skills: SkillItem[]) {
   }
 
   return Math.round(
-    clamp(
-      skills.reduce((sum, skill) => sum + skill.value, 0) /
-        skills.length
-    )
+    skills.reduce((sum, skill) => sum + skill.value, 0) /
+      skills.length
   );
 }
 
@@ -147,7 +240,10 @@ function getAverageCertainty(skills: SkillItem[]) {
 }
 
 function getEvidence(skills: SkillItem[]) {
-  return skills.reduce((sum, skill) => sum + skill.evidence, 0);
+  return skills.reduce(
+    (sum, skill) => sum + skill.evidence,
+    0
+  );
 }
 
 function getAverageTrend(skills: SkillItem[]) {
@@ -221,7 +317,17 @@ function getCategoryStats(skills: SkillItem[]) {
         data.trend.reduce((a, b) => a + b, 0) /
         data.trend.length,
     }))
-    .sort((a, b) => a.value - b.value);
+    .sort((a, b) => b.value - a.value);
+}
+
+function getWeakestSkill(skills: SkillItem[]) {
+  if (!skills.length) {
+    return null;
+  }
+
+  return [...skills].sort(
+    (a, b) => a.value - b.value
+  )[0];
 }
 
 export default function LearnScreen() {
@@ -245,12 +351,9 @@ export default function LearnScreen() {
       }, 10000);
 
       try {
-        const response = await authFetch(
-          "/learning/profile",
-          {
-            signal: controller.signal,
-          }
-        );
+        const response = await authFetch("/state", {
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
           throw new Error(
@@ -259,23 +362,25 @@ export default function LearnScreen() {
         }
 
         const data =
-          (await response.json()) as LearningProfile;
+          (await response.json()) as StateResponse;
 
-        setProfile(data);
+        console.log(
+          "Learning state updated:",
+          JSON.stringify(data.learning, null, 2)
+        );
+
+        setProfile(data.learning ?? null);
       } finally {
         clearTimeout(timeout);
       }
     } catch (error) {
       console.log(
-        "Failed to load learning profile:",
+        "Failed to load learning state:",
         error
       );
 
       setError(
-        error instanceof DOMException &&
-        error.name === "AbortError"
-          ? "Learning profile request timed out"
-          : error instanceof Error
+        error instanceof Error
           ? error.message
           : "Failed to load learning data"
       );
@@ -284,13 +389,6 @@ export default function LearnScreen() {
     }
   }, []);
 
-  /*
-   * Обновляем learning profile:
-   * - при первом открытии экрана;
-   * - каждый раз, когда пользователь возвращается
-   *   на вкладку Learn;
-   * - после завершения learning session.
-   */
   useFocusEffect(
     useCallback(() => {
       loadLearning();
@@ -343,41 +441,53 @@ export default function LearnScreen() {
     [profile]
   );
 
-  const progress = getProgress(skills);
-  const certainty = getAverageCertainty(skills);
-  const evidence = getEvidence(skills);
-  const averageTrend = getAverageTrend(skills);
-
   const categories = useMemo(
     () => getCategoryStats(skills),
     [skills]
   );
 
-  const analysis = profile?.analysis;
+  const progress = getProgress(skills);
+  const certainty = getAverageCertainty(skills);
+  const evidence = getEvidence(skills);
+  const averageTrend = getAverageTrend(skills);
 
-  const goal =
-    analysis?.goal?.goal ?? "English";
+  const weakestSkill = getWeakestSkill(skills);
 
-  const mode =
-    analysis?.mode?.mode ?? "Practice";
+  const visibleSkills = showAllSkills
+    ? skills
+    : skills.slice(0, 4);
 
-  const difficulty =
-    analysis?.difficulty?.difficulty ?? "Adaptive";
+  const identity = profile?.learner?.identity;
 
-  const activity = analysis?.activity;
+  const learningLanguage =
+    identity?.learning_language ?? "English";
 
-  const activityName =
-    activity?.name ??
-    activity?.title ??
-    "Grammar Practice";
+  const level =
+    identity?.level ??
+    profile?.analysis?.state?.level ??
+    "Unknown";
 
-  const activityType =
-    activity?.type ??
-    activity?.category ??
-    "Practice";
+  const preferredActivity =
+    profile?.learner?.learning_preferences
+      ?.preferred_activity ??
+    profile?.analysis?.activity?.name ??
+    profile?.strategy?.activity ??
+    "conversation";
 
-  const weakestSkill =
-    analysis?.state?.weakest_skill;
+  const primaryGoal =
+    profile?.learner?.goals?.primary ??
+    profile?.analysis?.goal?.goal ??
+    profile?.strategy?.goal ??
+    null;
+
+  const sessionsCount =
+    profile?.sessions?.length ??
+    profile?.learner?.memory?.statistics
+      ?.total_sessions ??
+    0;
+
+  const streak =
+    profile?.learner?.memory?.statistics?.streak ?? 0;
 
   const learningTrend =
     getTrendLabel(averageTrend);
@@ -385,9 +495,23 @@ export default function LearnScreen() {
   const trendEmoji =
     getTrendEmoji(averageTrend);
 
-  const visibleSkills = showAllSkills
-    ? skills
-    : skills.slice(0, 4);
+  const motivation =
+    profile?.learner?.motivation ??
+    profile?.analysis?.state?.motivation;
+
+  const motivationScore = motivation
+    ? Math.round(
+        (motivation.consistency ?? 0) +
+          (motivation.effort ?? 0) +
+          (motivation.engagement ?? 0)
+      ) / 3
+    : 0;
+
+  const recommendedActivity =
+    profile?.analysis?.activity;
+
+  const strategy =
+    profile?.strategy;
 
   return (
     <SectionScreen
@@ -425,6 +549,8 @@ export default function LearnScreen() {
         </View>
       ) : (
         <>
+          {/* OVERALL PROGRESS */}
+
           <View style={styles.heroCard}>
             <View style={styles.heroTop}>
               <View>
@@ -449,11 +575,15 @@ export default function LearnScreen() {
               </View>
             </View>
 
-            <View style={styles.heroProgressBackground}>
+            <View
+              style={styles.heroProgressBackground}
+            >
               <View
                 style={[
                   styles.heroProgress,
-                  { width: `${progress}%` },
+                  {
+                    width: `${progress}%`,
+                  },
                 ]}
               />
             </View>
@@ -495,6 +625,8 @@ export default function LearnScreen() {
             </View>
           </View>
 
+          {/* MOMENTUM */}
+
           <View style={styles.momentumCard}>
             <View style={styles.momentumIcon}>
               <Text style={styles.momentumEmoji}>
@@ -518,6 +650,8 @@ export default function LearnScreen() {
             </View>
           </View>
 
+          {/* SNAPSHOT */}
+
           <Text style={styles.sectionTitle}>
             Learning snapshot
           </Text>
@@ -525,16 +659,34 @@ export default function LearnScreen() {
           <View style={styles.snapshotCard}>
             <View style={styles.snapshotItem}>
               <Text style={styles.snapshotIcon}>
-                🎯
+                🌐
               </Text>
 
               <View style={styles.snapshotInfo}>
                 <Text style={styles.snapshotLabel}>
-                  Goal
+                  Language
                 </Text>
 
                 <Text style={styles.snapshotValue}>
-                  {formatTitle(goal)}
+                  {formatTitle(learningLanguage)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.snapshotDivider} />
+
+            <View style={styles.snapshotItem}>
+              <Text style={styles.snapshotIcon}>
+                📈
+              </Text>
+
+              <View style={styles.snapshotInfo}>
+                <Text style={styles.snapshotLabel}>
+                  Level
+                </Text>
+
+                <Text style={styles.snapshotValue}>
+                  {formatTitle(level)}
                 </Text>
               </View>
             </View>
@@ -548,11 +700,11 @@ export default function LearnScreen() {
 
               <View style={styles.snapshotInfo}>
                 <Text style={styles.snapshotLabel}>
-                  Mode
+                  Preferred activity
                 </Text>
 
                 <Text style={styles.snapshotValue}>
-                  {formatTitle(mode)}
+                  {formatTitle(preferredActivity)}
                 </Text>
               </View>
             </View>
@@ -561,20 +713,100 @@ export default function LearnScreen() {
 
             <View style={styles.snapshotItem}>
               <Text style={styles.snapshotIcon}>
-                ⚡
+                🎯
               </Text>
 
               <View style={styles.snapshotInfo}>
                 <Text style={styles.snapshotLabel}>
-                  Difficulty
+                  Goal
                 </Text>
 
                 <Text style={styles.snapshotValue}>
-                  {formatTitle(difficulty)}
+                  {primaryGoal
+                    ? formatTitle(primaryGoal)
+                    : "Not set"}
                 </Text>
               </View>
             </View>
           </View>
+
+          {/* MOTIVATION */}
+
+          <View style={styles.motivationCard}>
+            <View style={styles.motivationTop}>
+              <Text style={styles.motivationTitle}>
+                Motivation
+              </Text>
+
+              <Text style={styles.motivationValue}>
+                {Math.round(motivationScore)}%
+              </Text>
+            </View>
+
+            <View style={styles.motivationBackground}>
+              <View
+                style={[
+                  styles.motivationProgress,
+                  {
+                    width: `${clamp(
+                      motivationScore
+                    )}%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.motivationRow}>
+              <Text style={styles.motivationMeta}>
+                Consistency{" "}
+                {Math.round(
+                  motivation?.consistency ?? 0
+                )}%
+              </Text>
+
+              <Text style={styles.motivationMeta}>
+                Effort{" "}
+                {Math.round(
+                  motivation?.effort ?? 0
+                )}%
+              </Text>
+
+              <Text style={styles.motivationMeta}>
+                Engagement{" "}
+                {Math.round(
+                  motivation?.engagement ?? 0
+                )}%
+              </Text>
+            </View>
+          </View>
+
+          {/* STATISTICS */}
+
+          <View style={styles.miniStatsCard}>
+            <View style={styles.miniStat}>
+              <Text style={styles.miniStatValue}>
+                {sessionsCount}
+              </Text>
+
+              <Text style={styles.miniStatLabel}>
+                sessions
+              </Text>
+            </View>
+
+            <View style={styles.miniStatDivider} />
+
+            <View style={styles.miniStat}>
+              <Text style={styles.miniStatValue}>
+                {streak}
+              </Text>
+
+              <Text style={styles.miniStatLabel}>
+                streak
+              </Text>
+            </View>
+          </View>
+
+          {/* SKILLS */}
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
@@ -604,7 +836,8 @@ export default function LearnScreen() {
                   key={`${item.category}.${item.skill}`}
                   style={[
                     styles.skillItem,
-                    index === visibleSkills.length - 1 &&
+                    index ===
+                      visibleSkills.length - 1 &&
                       styles.skillItemLast,
                   ]}
                 >
@@ -620,7 +853,7 @@ export default function LearnScreen() {
                     </View>
 
                     <Text style={styles.skillValue}>
-                      {item.value}%
+                      {Math.round(item.value)}%
                     </Text>
                   </View>
 
@@ -634,6 +867,18 @@ export default function LearnScreen() {
                       ]}
                     />
                   </View>
+
+                  <Text style={styles.skillMeta}>
+                    {item.evidence > 0
+                      ? `${item.evidence} ${
+                          item.evidence === 1
+                            ? "evidence"
+                            : "evidence"
+                        } · ${Math.round(
+                          item.certainty
+                        )}% certainty`
+                      : "Not assessed yet"}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -650,6 +895,8 @@ export default function LearnScreen() {
             </View>
           )}
 
+          {/* CATEGORIES */}
+
           {categories.length > 0 && (
             <>
               <Pressable
@@ -659,11 +906,15 @@ export default function LearnScreen() {
                 }
               >
                 <View>
-                  <Text style={styles.categoryHeaderTitle}>
+                  <Text
+                    style={styles.categoryHeaderTitle}
+                  >
                     Skill categories
                   </Text>
 
-                  <Text style={styles.categoryHeaderText}>
+                  <Text
+                    style={styles.categoryHeaderText}
+                  >
                     See how different areas compare
                   </Text>
                 </View>
@@ -680,13 +931,16 @@ export default function LearnScreen() {
                       key={category.category}
                       style={[
                         styles.categoryItem,
-                        index === categories.length - 1 &&
+                        index ===
+                          categories.length - 1 &&
                           styles.categoryItemLast,
                       ]}
                     >
                       <View style={styles.categoryTop}>
                         <Text style={styles.categoryName}>
-                          {formatTitle(category.category)}
+                          {formatTitle(
+                            category.category
+                          )}
                         </Text>
 
                         <Text style={styles.categoryValue}>
@@ -694,7 +948,9 @@ export default function LearnScreen() {
                         </Text>
                       </View>
 
-                      <View style={styles.categoryBackground}>
+                      <View
+                        style={styles.categoryBackground}
+                      >
                         <View
                           style={[
                             styles.categoryProgress,
@@ -706,7 +962,7 @@ export default function LearnScreen() {
                       </View>
 
                       <Text style={styles.categoryMeta}>
-                        {category.evidence} pieces of evidence ·{" "}
+                        {category.evidence} evidence ·{" "}
                         {getTrendLabel(category.trend)}
                       </Text>
                     </View>
@@ -716,7 +972,9 @@ export default function LearnScreen() {
             </>
           )}
 
-          {weakestSkill?.skill && (
+          {/* FOCUS */}
+
+          {weakestSkill && (
             <>
               <Text style={styles.sectionTitle}>
                 Focus area
@@ -739,43 +997,103 @@ export default function LearnScreen() {
                   </Text>
 
                   <Text style={styles.focusText}>
-                    This is the skill that could
-                    benefit most from your next
-                    practice.
+                    This is currently the skill
+                    with the most room to grow.
                   </Text>
                 </View>
               </View>
             </>
           )}
 
-          <Text style={styles.sectionTitle}>
-            Your next activity
-          </Text>
+          {/* CURRENT STRATEGY */}
 
-          <View style={styles.activityCard}>
-            <View style={styles.activityIcon}>
-              <Text style={styles.activityEmoji}>
-                🎤
-              </Text>
-            </View>
-
-            <View style={styles.activityInfo}>
-              <Text style={styles.activityLabel}>
-                RECOMMENDED PRACTICE
+          {strategy && (
+            <>
+              <Text style={styles.sectionTitle}>
+                Learning strategy
               </Text>
 
-              <Text style={styles.activityTitle}>
-                {formatTitle(activityName)}
+              <View style={styles.strategyCard}>
+                <View style={styles.strategyIcon}>
+                  <Text style={styles.strategyEmoji}>
+                    🧠
+                  </Text>
+                </View>
+
+                <View style={styles.strategyInfo}>
+                  <Text style={styles.strategyLabel}>
+                    CURRENT APPROACH
+                  </Text>
+
+                  <Text style={styles.strategyTitle}>
+                    {formatTitle(strategy.activity)}
+                  </Text>
+
+                  <Text style={styles.strategyText}>
+                    {strategy.reason ??
+                      "Your learning strategy is adapting to your progress."}
+                  </Text>
+
+                  {strategy.difficulty && (
+                    <View style={styles.strategyTag}>
+                      <Text style={styles.strategyTagText}>
+                        {formatTitle(
+                          strategy.difficulty
+                        )}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* NEXT ACTIVITY */}
+
+          {recommendedActivity && (
+            <>
+              <Text style={styles.sectionTitle}>
+                Your next activity
               </Text>
 
-              <Text style={styles.activitySubtitle}>
-                {formatTitle(activityType)}
-                {activity?.skill
-                  ? ` · ${formatTitle(activity.skill)}`
-                  : ""}
-              </Text>
-            </View>
-          </View>
+              <View style={styles.activityCard}>
+                <View style={styles.activityIcon}>
+                  <Text style={styles.activityEmoji}>
+                    🎤
+                  </Text>
+                </View>
+
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityLabel}>
+                    RECOMMENDED PRACTICE
+                  </Text>
+
+                  <Text style={styles.activityTitle}>
+                    {recommendedActivity.name ??
+                      "General practice"}
+                  </Text>
+
+                  <Text style={styles.activitySubtitle}>
+                    {recommendedActivity.description ??
+                      "Practice based on your current learning profile."}
+                  </Text>
+
+                  <Text style={styles.activityMeta}>
+                    {formatTitle(
+                      recommendedActivity.skill
+                    )}{" "}
+                    ·{" "}
+                    {formatTitle(
+                      recommendedActivity.difficulty
+                    )}
+                    {recommendedActivity.duration
+                      ? ` · ${recommendedActivity.duration} min`
+                      : ""}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
 
           <Pressable
             style={[
@@ -959,7 +1277,6 @@ const styles = StyleSheet.create({
 
   momentumEmoji: {
     fontSize: 25,
-    color: "#FF6FA7",
   },
 
   momentumInfo: {
@@ -1030,12 +1347,98 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#FF6FA7",
+    maxWidth: "60%",
+    textAlign: "right",
   },
 
   snapshotDivider: {
     height: 1,
     backgroundColor: "#F3EEF0",
     marginVertical: 7,
+  },
+
+  motivationCard: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F1ECEF",
+    borderRadius: 21,
+    padding: 17,
+    marginBottom: 25,
+  },
+
+  motivationTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  motivationTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#292529",
+  },
+
+  motivationValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FF6FA7",
+  },
+
+  motivationBackground: {
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#F0E6EA",
+    overflow: "hidden",
+    marginTop: 12,
+  },
+
+  motivationProgress: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: "#FF8FBA",
+  },
+
+  motivationRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 9,
+  },
+
+  motivationMeta: {
+    fontSize: 9,
+    color: "#9A9095",
+  },
+
+  miniStatsCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F1ECEF",
+    borderRadius: 21,
+    paddingVertical: 16,
+    marginBottom: 25,
+  },
+
+  miniStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  miniStatDivider: {
+    width: 1,
+    backgroundColor: "#EBDDE3",
+  },
+
+  miniStatValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#292529",
+  },
+
+  miniStatLabel: {
+    fontSize: 11,
+    color: "#9A9095",
+    marginTop: 2,
   },
 
   sectionHeader: {
@@ -1108,6 +1511,12 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
     backgroundColor: "#FF8FBA",
+  },
+
+  skillMeta: {
+    fontSize: 10,
+    color: "#A39A9F",
+    marginTop: 5,
   },
 
   emptyCard: {
@@ -1261,6 +1670,69 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
+  strategyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF7FA",
+    borderRadius: 21,
+    padding: 16,
+    marginBottom: 25,
+  },
+
+  strategyIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 17,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 13,
+  },
+
+  strategyEmoji: {
+    fontSize: 25,
+  },
+
+  strategyInfo: {
+    flex: 1,
+  },
+
+  strategyLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+    color: "#FF6FA7",
+  },
+
+  strategyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#292529",
+    marginTop: 3,
+  },
+
+  strategyText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#8E858A",
+    marginTop: 4,
+  },
+
+  strategyTag: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    marginTop: 8,
+  },
+
+  strategyTagText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FF6FA7",
+  },
+
   activityCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -1306,8 +1778,15 @@ const styles = StyleSheet.create({
 
   activitySubtitle: {
     fontSize: 12,
+    lineHeight: 17,
     color: "#8E858A",
     marginTop: 3,
+  },
+
+  activityMeta: {
+    fontSize: 10,
+    color: "#A39A9F",
+    marginTop: 7,
   },
 
   startButton: {

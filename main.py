@@ -1,20 +1,19 @@
 import json
 from typing import Optional
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db
+from db.init_db import init_db
 
 from core.mirai import chat as mirai_chat
-
+from core.personality import get_personality
 from core.emotion import get_emotion, reset_emotion
 from core.relationship import get_relationship, reset_relationship
-
 from core.learning import create_learning_context
-from contextlib import asynccontextmanager
-from db.init_db import init_db
 
 from core.conversation import (
     load_conversation,
@@ -27,10 +26,21 @@ from auth.router import router as auth_router
 from auth.router import get_current_user
 from notifications.router import router as notifications_router
 
+
+# =========================================
+# LIFESPAN
+# =========================================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     yield
+
+
+# =========================================
+# APP
+# =========================================
+
 app = FastAPI(
     title="Mirai API",
     version="1.0.0",
@@ -127,6 +137,7 @@ def state(
 ):
     user_id = current_user["id"]
 
+    # Learning
     learning_context = create_learning_context(user_id)
 
     return {
@@ -137,6 +148,8 @@ def state(
         "relationship": get_relationship(
             user_id=user_id,
         ),
+
+        "personality": get_personality(),
 
         "learning": learning_context.learning.get_profile(),
     }
@@ -286,6 +299,7 @@ def full_reset(
     # -------------------------------------
 
     learning_context = create_learning_context(user_id)
+
     learning_context.learning.learner.reset()
 
     return {

@@ -1,12 +1,15 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Mirai",
+    "slug": "mirai",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "mobile",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/avatar.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "mirai",
     "ios": {
+      "supportsTablet": true,
       "bundleIdentifier": "com.ursuslabs.mirai",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -16,6 +19,7 @@
       "package": "com.ursuslabs.mirai",
       "predictiveBackGestureEnabled": false
     },
+    "softwareKeyboardLayoutMode": "resize",
     "plugins": [
       "expo-router",
       "expo-splash-screen",
@@ -33,16 +37,6 @@
       "expo-image",
       "expo-status-bar",
       "expo-web-browser"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": false
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "ddec56e6-35fd-41bf-ac6e-6b99d259d82c"
-      }
-    }
+    ]
   }
 }

@@ -1,10 +1,5 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { useFocusEffect } from "expo-router";;
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
   Animated,
@@ -15,25 +10,26 @@ import {
   Text,
   View,
 } from "react-native";
+
 import { SectionScreen } from "../../components/section-screen";
 import { authFetch } from "../../auth/auth";
 
 type Emotion = {
-  happiness: number;
-  energy: number;
-  trust: number;
-  curiosity: number;
-  comfort: number;
-  excitement: number;
-  stress: number;
+  happiness?: number;
+  energy?: number;
+  trust?: number;
+  curiosity?: number;
+  comfort?: number;
+  excitement?: number;
+  stress?: number;
 };
 
 type Relationship = {
-  stage: string;
-  closeness: number;
+  stage?: string;
+  closeness?: number;
 };
 
-type Personality = {
+type PersonalityTraits = {
   confidence?: number;
   ambition?: number;
   competitiveness?: number;
@@ -41,6 +37,26 @@ type Personality = {
   humor?: number;
   independence?: number;
   perfectionism?: number;
+  curiosity?: number;
+  patience?: number;
+  honesty?: number;
+};
+
+type Personality = {
+  // Current backend format
+  core_traits?: PersonalityTraits;
+
+  // Old working format
+  confidence?: number;
+  ambition?: number;
+  competitiveness?: number;
+  empathy?: number;
+  humor?: number;
+  independence?: number;
+  perfectionism?: number;
+  curiosity?: number;
+  patience?: number;
+  honesty?: number;
 };
 
 type Memory = {
@@ -48,43 +64,62 @@ type Memory = {
   total?: number;
 };
 
-type Learning = {
-  progress?: number;
-  sessions?: number;
-};
-
 type MiraiState = {
-  emotion: Emotion;
-  relationship: Relationship;
+  emotion?: Emotion;
+  relationship?: Relationship;
   personality?: Personality;
   memory?: Memory;
-  learning?: Learning;
 };
 
-function clamp(value: number) {
+const DEFAULT_PERSONALITY: Required<PersonalityTraits> = {
+  confidence: 73,
+  ambition: 90,
+  competitiveness: 45,
+  empathy: 75,
+  humor: 80,
+  independence: 80,
+  perfectionism: 60,
+  curiosity: 90,
+  patience: 75,
+  honesty: 85,
+};
+
+function clamp(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+
   return Math.max(0, Math.min(100, value));
 }
 
-function getMood(emotion: Emotion) {
+function getMood(emotion?: Emotion) {
+  if (!emotion) {
+    return {
+      name: "Calm",
+      value: 0,
+      emoji: "🌸",
+    };
+  }
+
   const moods = [
     {
       name: "Excited",
-      value: emotion.excitement,
+      value: clamp(emotion.excitement),
       emoji: "✨",
     },
     {
       name: "Happy",
-      value: emotion.happiness,
+      value: clamp(emotion.happiness),
       emoji: "😊",
     },
     {
       name: "Curious",
-      value: emotion.curiosity,
+      value: clamp(emotion.curiosity),
       emoji: "🌸",
     },
     {
       name: "Calm",
-      value: emotion.comfort,
+      value: clamp(emotion.comfort),
       emoji: "🌿",
     },
   ];
@@ -95,40 +130,108 @@ function getMood(emotion: Emotion) {
 }
 
 function formatStage(stage?: string) {
-  if (!stage) return "Getting to know you";
+  if (!stage) {
+    return "Getting to know you";
+  }
 
   return stage.charAt(0).toUpperCase() + stage.slice(1);
 }
 
+/**
+ * Supports both:
+ *
+ * {
+ *   personality: {
+ *     core_traits: {
+ *       confidence: 73
+ *     }
+ *   }
+ * }
+ *
+ * and the old:
+ *
+ * {
+ *   personality: {
+ *     confidence: 73
+ *   }
+ * }
+ *
+ * If the backend doesn't send personality at all,
+ * we keep Mirai's canonical personality instead of showing 0.
+ */
 function getPersonalityTraits(personality?: Personality) {
+  const core = personality?.core_traits;
+
   return [
     {
       name: "Confidence",
-      value: personality?.confidence ?? 73,
+      value:
+        core?.confidence ??
+        personality?.confidence ??
+        DEFAULT_PERSONALITY.confidence,
     },
     {
       name: "Ambition",
-      value: personality?.ambition ?? 90,
+      value:
+        core?.ambition ??
+        personality?.ambition ??
+        DEFAULT_PERSONALITY.ambition,
     },
     {
       name: "Competitiveness",
-      value: personality?.competitiveness ?? 45,
+      value:
+        core?.competitiveness ??
+        personality?.competitiveness ??
+        DEFAULT_PERSONALITY.competitiveness,
     },
     {
       name: "Empathy",
-      value: personality?.empathy ?? 75,
+      value:
+        core?.empathy ??
+        personality?.empathy ??
+        DEFAULT_PERSONALITY.empathy,
     },
     {
       name: "Humor",
-      value: personality?.humor ?? 80,
+      value:
+        core?.humor ??
+        personality?.humor ??
+        DEFAULT_PERSONALITY.humor,
     },
     {
       name: "Independence",
-      value: personality?.independence ?? 80,
+      value:
+        core?.independence ??
+        personality?.independence ??
+        DEFAULT_PERSONALITY.independence,
     },
     {
       name: "Perfectionism",
-      value: personality?.perfectionism ?? 60,
+      value:
+        core?.perfectionism ??
+        personality?.perfectionism ??
+        DEFAULT_PERSONALITY.perfectionism,
+    },
+    {
+      name: "Curiosity",
+      value:
+        core?.curiosity ??
+        personality?.curiosity ??
+        DEFAULT_PERSONALITY.curiosity,
+    },
+    {
+      name: "Patience",
+      value:
+        core?.patience ??
+        personality?.patience ??
+        DEFAULT_PERSONALITY.patience,
+    },
+    {
+      name: "Honesty",
+      value:
+        core?.honesty ??
+        personality?.honesty ??
+        DEFAULT_PERSONALITY.honesty,
     },
   ];
 }
@@ -138,88 +241,48 @@ export default function MiraiScreen() {
   const [loading, setLoading] = useState(true);
   const [aboutVisible, setAboutVisible] = useState(false);
 
-  const screenOpacity = useRef(
-    new Animated.Value(0)
-  ).current;
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenTranslateY = useRef(new Animated.Value(15)).current;
+  const avatarScale = useRef(new Animated.Value(1)).current;
 
-  const screenTranslateY = useRef(
-    new Animated.Value(15)
-  ).current;
-
-  const avatarScale = useRef(
-    new Animated.Value(1)
-  ).current;
-
-  /*
-   * Load the current Mirai state from the backend.
-   *
-   * This is wrapped in useCallback so it can safely be
-   * used by useFocusEffect.
-   */
   const loadState = useCallback(async () => {
     try {
       const response = await authFetch("/state");
 
       if (!response.ok) {
-        throw new Error(
-          `Request failed with status ${response.status}`
-        );
+        throw new Error(`Request failed with status ${response.status}`);
       }
 
       const data = (await response.json()) as MiraiState;
 
-      console.log("Mirai state updated:", data);
+      /*
+       * Important:
+       * /state is the single source for Mirai's state.
+       */
+      console.log("Mirai /state:", JSON.stringify(data));
 
       setState(data);
     } catch (error) {
-      console.log(
-        "Failed to load Mirai state:",
-        error
-      );
+      console.log("Failed to load Mirai state:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  /*
-   * Load state when the screen is first mounted.
-   *
-   * More importantly, useFocusEffect below reloads it
-   * every time the user comes back to this tab.
-   */
   useEffect(() => {
     loadState();
   }, [loadState]);
 
-  /*
-   * Refresh Mirai's state every time the Mirai tab
-   * becomes active again.
-   *
-   * Example:
-   *
-   * Chat
-   *   ↓
-   * talk to Mirai
-   *   ↓
-   * backend updates emotion / relationship / memory / learning
-   *   ↓
-   * open Mirai tab
-   *   ↓
-   * GET /state
-   *   ↓
-   * UI receives the new numbers
-   */
   useFocusEffect(
     useCallback(() => {
       loadState();
     }, [loadState])
   );
 
-  /*
-   * Initial screen animation.
-   */
   useEffect(() => {
-    if (loading || !state) return;
+    if (loading) {
+      return;
+    }
 
     Animated.parallel([
       Animated.timing(screenOpacity, {
@@ -262,38 +325,31 @@ export default function MiraiScreen() {
     };
   }, [
     loading,
-    state,
     screenOpacity,
     screenTranslateY,
     avatarScale,
   ]);
 
-  const mood = state
-    ? getMood(state.emotion)
-    : null;
+  const emotion = state?.emotion;
+
+  const mood = getMood(emotion);
 
   const relationshipStage = formatStage(
-    state?.relationship.stage
+    state?.relationship?.stage
   );
 
   const closeness = clamp(
-    state?.relationship.closeness ?? 0
+    state?.relationship?.closeness
   );
 
-  const personalityTraits =
-    getPersonalityTraits(state?.personality);
+  const personalityTraits = getPersonalityTraits(
+    state?.personality
+  );
 
   const memoryCount =
     state?.memory?.count ??
     state?.memory?.total ??
     0;
-
-  const learningProgress = clamp(
-    state?.learning?.progress ?? 0
-  );
-
-  const sessions =
-    state?.learning?.sessions ?? 0;
 
   return (
     <SectionScreen
@@ -353,9 +409,8 @@ export default function MiraiScreen() {
               </Text>
 
               <Text style={styles.status}>
-                {mood
-                  ? `${mood.emoji} Feeling ${mood.name.toLowerCase()}`
-                  : "🌸 Getting ready"}
+                {mood.emoji} Feeling{" "}
+                {mood.name.toLowerCase()}
               </Text>
 
               <View style={styles.heroDivider} />
@@ -382,32 +437,15 @@ export default function MiraiScreen() {
                     memories
                   </Text>
                 </View>
-
-                <View style={styles.heroStatDivider} />
-
-                <View style={styles.heroStat}>
-                  <Text style={styles.heroStatValue}>
-                    {sessions}
-                  </Text>
-
-                  <Text style={styles.heroStatLabel}>
-                    sessions
-                  </Text>
-                </View>
               </View>
             </View>
 
             {/* BASIC INFO */}
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                About her
-              </Text>
-
-              <Text style={styles.sectionCaption}>
-                The basics
-              </Text>
-            </View>
+            <SectionHeader
+              title="About her"
+              caption="The basics"
+            />
 
             <View style={styles.infoCard}>
               <InfoRow
@@ -443,33 +481,27 @@ export default function MiraiScreen() {
 
             {/* MOOD */}
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Current mood
-              </Text>
-
-              <Text style={styles.sectionCaption}>
-                Right now
-              </Text>
-            </View>
+            <SectionHeader
+              title="Current mood"
+              caption="Right now"
+            />
 
             <View style={styles.moodCard}>
               <View style={styles.moodMain}>
                 <View style={styles.moodIcon}>
                   <Text style={styles.moodEmoji}>
-                    {mood?.emoji ?? "🌸"}
+                    {mood.emoji}
                   </Text>
                 </View>
 
                 <View style={styles.moodInfo}>
                   <Text style={styles.moodTitle}>
-                    {mood?.name ?? "Calm"}
+                    {mood.name}
                   </Text>
 
                   <Text style={styles.moodDescription}>
-                    {mood
-                      ? "This is how Mirai is feeling at the moment."
-                      : "Mirai's emotional state is unavailable."}
+                    This is how Mirai is feeling at the
+                    moment.
                   </Text>
                 </View>
               </View>
@@ -477,45 +509,32 @@ export default function MiraiScreen() {
               <View style={styles.emotionGrid}>
                 <EmotionBar
                   label="Happiness"
-                  value={
-                    state?.emotion.happiness ?? 0
-                  }
+                  value={emotion?.happiness}
                 />
 
                 <EmotionBar
                   label="Energy"
-                  value={
-                    state?.emotion.energy ?? 0
-                  }
+                  value={emotion?.energy}
                 />
 
                 <EmotionBar
                   label="Curiosity"
-                  value={
-                    state?.emotion.curiosity ?? 0
-                  }
+                  value={emotion?.curiosity}
                 />
 
                 <EmotionBar
                   label="Comfort"
-                  value={
-                    state?.emotion.comfort ?? 0
-                  }
+                  value={emotion?.comfort}
                 />
               </View>
             </View>
 
             {/* RELATIONSHIP */}
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Your relationship
-              </Text>
-
-              <Text style={styles.sectionCaption}>
-                Growing naturally
-              </Text>
-            </View>
+            <SectionHeader
+              title="Your relationship"
+              caption="Growing naturally"
+            />
 
             <View style={styles.card}>
               <View style={styles.relationshipTop}>
@@ -524,33 +543,19 @@ export default function MiraiScreen() {
                     CURRENT STAGE
                   </Text>
 
-                  <Text
-                    style={
-                      styles.relationshipStage
-                    }
-                  >
+                  <Text style={styles.relationshipStage}>
                     {relationshipStage}
                   </Text>
                 </View>
 
-                <View
-                  style={
-                    styles.relationshipBadge
-                  }
-                >
-                  <Text
-                    style={
-                      styles.relationshipBadgeText
-                    }
-                  >
+                <View style={styles.relationshipBadge}>
+                  <Text style={styles.relationshipBadgeText}>
                     {Math.round(closeness)}%
                   </Text>
                 </View>
               </View>
 
-              <View
-                style={styles.progressBackground}
-              >
+              <View style={styles.progressBackground}>
                 <View
                   style={[
                     styles.progress,
@@ -570,83 +575,53 @@ export default function MiraiScreen() {
 
             {/* PERSONALITY */}
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Personality
-              </Text>
-
-              <Text style={styles.sectionCaption}>
-                Who Mirai is
-              </Text>
-            </View>
+            <SectionHeader
+              title="Personality"
+              caption="Who Mirai is"
+            />
 
             <View style={styles.card}>
-              {personalityTraits.map(
-                (trait, index) => (
-                  <View
-                    key={trait.name}
-                    style={[
-                      styles.traitRow,
-                      index ===
-                        personalityTraits.length -
-                          1 &&
-                        styles.traitRowLast,
-                    ]}
-                  >
-                    <View
-                      style={styles.traitHeader}
-                    >
-                      <Text
-                        style={styles.traitName}
-                      >
-                        {trait.name}
-                      </Text>
+              {personalityTraits.map((trait, index) => (
+                <View
+                  key={trait.name}
+                  style={[
+                    styles.traitRow,
+                    index === personalityTraits.length - 1 &&
+                      styles.traitRowLast,
+                  ]}
+                >
+                  <View style={styles.traitHeader}>
+                    <Text style={styles.traitName}>
+                      {trait.name}
+                    </Text>
 
-                      <Text
-                        style={styles.traitValue}
-                      >
-                        {Math.round(
-                          trait.value
-                        )}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={
-                        styles.traitBackground
-                      }
-                    >
-                      <View
-                        style={[
-                          styles.traitProgress,
-                          {
-                            width: `${clamp(
-                              trait.value
-                            )}%`,
-                          },
-                        ]}
-                      />
-                    </View>
+                    <Text style={styles.traitValue}>
+                      {Math.round(trait.value)}
+                    </Text>
                   </View>
-                )
-              )}
+
+                  <View style={styles.traitBackground}>
+                    <View
+                      style={[
+                        styles.traitProgress,
+                        {
+                          width: `${clamp(trait.value)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ))}
             </View>
 
             {/* LITTLE THINGS */}
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Little things about Mirai
-              </Text>
+            <SectionHeader
+              title="Little things about Mirai"
+              caption="Her personality"
+            />
 
-              <Text style={styles.sectionCaption}>
-                Her personality
-              </Text>
-            </View>
-
-            <View
-              style={styles.littleThingsCard}
-            >
+            <View style={styles.littleThingsCard}>
               <LittleThing
                 emoji="😏"
                 title="She likes teasing"
@@ -680,15 +655,10 @@ export default function MiraiScreen() {
 
             {/* ENGLISH STORY */}
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Why English matters to her
-              </Text>
-
-              <Text style={styles.sectionCaption}>
-                Her story
-              </Text>
-            </View>
+            <SectionHeader
+              title="Why English matters to her"
+              caption="Her story"
+            />
 
             <View style={styles.storyCard}>
               <View style={styles.storyIcon}>
@@ -726,15 +696,10 @@ export default function MiraiScreen() {
 
             {/* MEMORY */}
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Memory
-              </Text>
-
-              <Text style={styles.sectionCaption}>
-                What Mirai remembers
-              </Text>
-            </View>
+            <SectionHeader
+              title="Memory"
+              caption="What Mirai remembers"
+            />
 
             <View style={styles.memoryCard}>
               <View style={styles.memoryIcon}>
@@ -748,11 +713,7 @@ export default function MiraiScreen() {
                   {memoryCount} memories
                 </Text>
 
-                <Text
-                  style={
-                    styles.memoryDescription
-                  }
-                >
+                <Text style={styles.memoryDescription}>
                   Important details from your
                   conversations can become part of
                   Mirai's long-term memory.
@@ -764,97 +725,32 @@ export default function MiraiScreen() {
               </Text>
             </View>
 
-            {/* LEARNING */}
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Learning together
-              </Text>
-
-              <Text style={styles.sectionCaption}>
-                Your shared progress
-              </Text>
-            </View>
-
-            <View style={styles.learningCard}>
-              <View style={styles.learningIcon}>
-                <Text
-                  style={styles.learningEmoji}
-                >
-                  📚
-                </Text>
-              </View>
-
-              <View style={styles.learningInfo}>
-                <Text style={styles.learningTitle}>
-                  {Math.round(
-                    learningProgress
-                  )}% progress
-                </Text>
-
-                <Text
-                  style={
-                    styles.learningDescription
-                  }
-                >
-                  Mirai adapts the learning experience
-                  based on your progress.
-                </Text>
-
-                <View
-                  style={
-                    styles.progressBackground
-                  }
-                >
-                  <View
-                    style={[
-                      styles.progress,
-                      {
-                        width: `${learningProgress}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* ABOUT BUTTON */}
+            {/* ABOUT */}
 
             <Pressable
               style={({ pressed }) => [
                 styles.aboutButton,
-                pressed &&
-                  styles.buttonPressed,
+                pressed && styles.buttonPressed,
               ]}
               onPress={() =>
-                setAboutVisible(
-                  !aboutVisible
-                )
+                setAboutVisible((visible) => !visible)
               }
             >
-              <Text
-                style={styles.aboutButtonIcon}
-              >
+              <Text style={styles.aboutButtonIcon}>
                 ✨
               </Text>
 
-              <Text
-                style={styles.aboutButtonText}
-              >
+              <Text style={styles.aboutButtonText}>
                 {aboutVisible
                   ? "Hide Mirai's story"
                   : "About Mirai"}
               </Text>
             </Pressable>
 
-            {/* ABOUT */}
-
             {aboutVisible && (
               <View style={styles.aboutCard}>
                 <View style={styles.aboutHeader}>
-                  <Text
-                    style={styles.aboutTitle}
-                  >
+                  <Text style={styles.aboutTitle}>
                     About Mirai
                   </Text>
 
@@ -864,9 +760,7 @@ export default function MiraiScreen() {
                     }
                     hitSlop={10}
                   >
-                    <Text
-                      style={styles.closeButton}
-                    >
+                    <Text style={styles.closeButton}>
                       ×
                     </Text>
                   </Pressable>
@@ -936,13 +830,9 @@ export default function MiraiScreen() {
                   distracted from studying.
                 </Text>
 
-                <View
-                  style={styles.aboutDivider}
-                />
+                <View style={styles.aboutDivider} />
 
-                <Text
-                  style={styles.aboutQuote}
-                >
+                <Text style={styles.aboutQuote}>
                   "The future is more fun when you don't
                   have to figure it out alone."
                 </Text>
@@ -957,13 +847,35 @@ export default function MiraiScreen() {
   );
 }
 
+function SectionHeader({
+  title,
+  caption,
+}: {
+  title: string;
+  caption: string;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>
+        {title}
+      </Text>
+
+      <Text style={styles.sectionCaption}>
+        {caption}
+      </Text>
+    </View>
+  );
+}
+
 function EmotionBar({
   label,
   value,
 }: {
   label: string;
-  value: number;
+  value?: number;
 }) {
+  const safeValue = clamp(value);
+
   return (
     <View style={styles.emotionItem}>
       <View style={styles.emotionHeader}>
@@ -972,18 +884,16 @@ function EmotionBar({
         </Text>
 
         <Text style={styles.emotionValue}>
-          {Math.round(value)}%
+          {Math.round(safeValue)}%
         </Text>
       </View>
 
-      <View
-        style={styles.emotionBackground}
-      >
+      <View style={styles.emotionBackground}>
         <View
           style={[
             styles.emotionProgress,
             {
-              width: `${clamp(value)}%`,
+              width: `${safeValue}%`,
             },
           ]}
         />
@@ -1033,30 +943,18 @@ function LittleThing({
 }) {
   return (
     <View style={styles.littleThing}>
-      <View
-        style={styles.littleThingIcon}
-      >
-        <Text
-          style={styles.littleThingEmoji}
-        >
+      <View style={styles.littleThingIcon}>
+        <Text style={styles.littleThingEmoji}>
           {emoji}
         </Text>
       </View>
 
-      <View
-        style={styles.littleThingInfo}
-      >
-        <Text
-          style={styles.littleThingTitle}
-        >
+      <View style={styles.littleThingInfo}>
+        <Text style={styles.littleThingTitle}>
           {title}
         </Text>
 
-        <Text
-          style={
-            styles.littleThingDescription
-          }
-        >
+        <Text style={styles.littleThingDescription}>
           {description}
         </Text>
       </View>
@@ -1556,47 +1454,6 @@ const styles = StyleSheet.create({
     fontSize: 27,
     color: "#B7ADB2",
     marginLeft: 8,
-  },
-
-  learningCard: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#F1ECEF",
-    padding: 16,
-    marginBottom: 24,
-  },
-
-  learningIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 17,
-    backgroundColor: "#FFF3F7",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 13,
-  },
-
-  learningEmoji: {
-    fontSize: 24,
-  },
-
-  learningInfo: {
-    flex: 1,
-  },
-
-  learningTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#292529",
-  },
-
-  learningDescription: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: "#8E858A",
-    marginTop: 3,
   },
 
   aboutButton: {

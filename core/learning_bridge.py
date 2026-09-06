@@ -1,3 +1,4 @@
+
 from learning.controller import LearningController
 from learning.influence import LearningInfluence
 from learning.learning_events import detect_learning_event
@@ -11,9 +12,11 @@ class LearningBridge:
 
         User message
               ↓
-        detect learning event
-              ↓
         LearningController
+              ↓
+        ConversationAssessment
+              ↓
+        SkillUpdateSystem
               ↓
         LearningInfluence
               ↓
@@ -72,9 +75,6 @@ class LearningBridge:
 
     # =========================================================
     # PROCESS USER MESSAGE
-    #
-    # This is the main connection between
-    # conversation and learning.
     # =========================================================
 
     def process_message(
@@ -102,7 +102,8 @@ class LearningBridge:
                     "reason": None
                 },
                 "profile": self.get_profile(),
-                "strategy": self.get_strategy()
+                "strategy": self.get_strategy(),
+                "learning_result": {}
             }
 
         message = str(message).strip()
@@ -120,7 +121,8 @@ class LearningBridge:
                     "reason": None
                 },
                 "profile": self.get_profile(),
-                "strategy": self.get_strategy()
+                "strategy": self.get_strategy(),
+                "learning_result": {}
             }
 
         # =========================
@@ -132,7 +134,7 @@ class LearningBridge:
         )
 
         # =========================
-        # Update learner
+        # Update learner from event
         # =========================
 
         if event:
@@ -141,6 +143,26 @@ class LearningBridge:
                 event,
                 message
             )
+
+        # =========================
+        # IMPORTANT:
+        # Process EVERY user message
+        # through the Learning Engine.
+        #
+        # This runs:
+        # ConversationAssessment
+        #        ↓
+        # Evidence
+        #        ↓
+        # SkillUpdateSystem
+        #        ↓
+        # Save memory
+        # =========================
+
+        learning_result = self.learning.process_message(
+            message,
+            context=context
+        )
 
         # =========================
         # Analyze learning influence
@@ -176,7 +198,9 @@ class LearningBridge:
 
             "strategy": strategy,
 
-            "profile": profile
+            "profile": profile,
+
+            "learning_result": learning_result
         }
 
     # =========================================================
@@ -218,94 +242,3 @@ class LearningBridge:
     def get_memory_analysis(self):
 
         return self.learning.get_memory_analysis()
-
-    # =========================================================
-    # GET LEARNING INFLUENCE ONLY
-    # =========================================================
-
-    def get_learning_influence(
-        self,
-        message,
-        context=None
-    ):
-
-        context = context or {}
-
-        event = detect_learning_event(
-            message
-        )
-
-        return self.influence.analyze(
-            message,
-            context,
-            event
-        )
-
-    # =========================================================
-    # GET CURRENT LEARNING STATE
-    # =========================================================
-
-    def get_state(self):
-
-        return self.learning.state.get_state()
-
-    # =========================================================
-    # GET CURRENT GOAL
-    # =========================================================
-
-    def get_goal(self):
-
-        return self.learning.get_goal_strategy()
-
-    # =========================================================
-    # GET ACTIVE SESSION
-    # =========================================================
-
-    def get_active_session(self):
-
-        return self.learning.get_last_session()
-
-    # =========================================================
-    # CHECK WHETHER LEARNING SHOULD HAPPEN
-    # =========================================================
-
-    def should_teach(
-        self,
-        message,
-        context=None
-    ):
-
-        influence = self.get_learning_influence(
-            message,
-            context
-        )
-
-        return influence.get(
-            "should_teach",
-            False
-        )
-
-    # =========================================================
-    # GET NEXT ACTIVITY
-    # =========================================================
-
-    def get_next_activity(self):
-
-        analysis = self.learning.analyze()
-
-        return analysis.get(
-            "activity"
-        )
-
-    # =========================================================
-    # COMPLETE CURRENT ACTIVITY
-    # =========================================================
-
-    def complete_learning(
-        self,
-        result
-    ):
-
-        return self.learning.complete_activity(
-            result
-        )
