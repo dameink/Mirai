@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   Pressable,
   StyleSheet,
   Text,
@@ -17,6 +18,8 @@ type Skill = {
   trend?: number;
 };
 
+type Skills = Record<string, Record<string, Skill>>;
+
 type LearningProfile = {
   learner?: {
     identity?: {
@@ -26,12 +29,7 @@ type LearningProfile = {
       level?: string;
     };
 
-    goals?: {
-      primary?: string | null;
-      secondary?: string[];
-    };
-
-    skills?: Record<string, Record<string, Skill>>;
+    skills?: Skills;
 
     learning_preferences?: {
       preferred_activity?: string | null;
@@ -48,7 +46,10 @@ type LearningProfile = {
       engagement?: number;
     };
 
-    history?: unknown[];
+    goals?: {
+      primary?: string | null;
+      secondary?: string[];
+    };
 
     memory?: {
       identity?: {
@@ -57,7 +58,9 @@ type LearningProfile = {
         learning_language?: string;
         level?: string;
       };
-      skills?: Record<string, unknown>;
+
+      skills?: Skills;
+
       errors?: unknown[];
       completed_topics?: string[];
       difficult_topics?: string[];
@@ -68,6 +71,7 @@ type LearningProfile = {
       goals?: unknown[];
       preferences?: Record<string, unknown>;
       events?: unknown[];
+
       statistics?: {
         total_sessions?: number;
         total_minutes?: number;
@@ -79,12 +83,15 @@ type LearningProfile = {
   analysis?: {
     state?: {
       level?: string;
+
       motivation?: {
         consistency?: number;
         effort?: number;
         engagement?: number;
       };
+
       confidence?: number;
+
       weakest_skill?: {
         category?: string | null;
         skill?: string | null;
@@ -174,8 +181,17 @@ function formatTitle(value: unknown): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+/**
+ * Learning skills are persisted inside:
+ *
+ * learner.memory.skills
+ *
+ * Example:
+ *
+ * learner.memory.skills.grammar.tenses.value
+ */
 function getSkillList(profile: LearningProfile): SkillItem[] {
-  const skills = profile.learner?.skills;
+  const skills = profile.learner?.memory?.skills;
 
   if (!skills) {
     return [];
@@ -183,36 +199,52 @@ function getSkillList(profile: LearningProfile): SkillItem[] {
 
   const result: SkillItem[] = [];
 
-  Object.entries(skills).forEach(([category, categorySkills]) => {
-    Object.entries(categorySkills || {}).forEach(
-      ([skillName, skill]) => {
-        if (!skill) {
-          return;
-        }
-
-        result.push({
-          category,
-          skill: skillName,
-          value:
-            typeof skill.value === "number"
-              ? clamp(skill.value)
-              : 0,
-          certainty:
-            typeof skill.certainty === "number"
-              ? clamp(skill.certainty)
-              : 0,
-          evidence:
-            typeof skill.evidence_count === "number"
-              ? skill.evidence_count
-              : 0,
-          trend:
-            typeof skill.trend === "number"
-              ? skill.trend
-              : 0,
-        });
+  Object.entries(skills).forEach(
+    ([category, categorySkills]) => {
+      if (
+        !categorySkills ||
+        typeof categorySkills !== "object"
+      ) {
+        return;
       }
-    );
-  });
+
+      Object.entries(categorySkills).forEach(
+        ([skillName, skill]) => {
+          if (
+            !skill ||
+            typeof skill !== "object"
+          ) {
+            return;
+          }
+
+          result.push({
+            category,
+            skill: skillName,
+
+            value:
+              typeof skill.value === "number"
+                ? clamp(skill.value)
+                : 0,
+
+            certainty:
+              typeof skill.certainty === "number"
+                ? clamp(skill.certainty)
+                : 0,
+
+            evidence:
+              typeof skill.evidence_count === "number"
+                ? skill.evidence_count
+                : 0,
+
+            trend:
+              typeof skill.trend === "number"
+                ? skill.trend
+                : 0,
+          });
+        }
+      );
+    }
+  );
 
   return result;
 }
@@ -223,8 +255,10 @@ function getProgress(skills: SkillItem[]) {
   }
 
   return Math.round(
-    skills.reduce((sum, skill) => sum + skill.value, 0) /
-      skills.length
+    skills.reduce(
+      (sum, skill) => sum + skill.value,
+      0
+    ) / skills.length
   );
 }
 
@@ -234,8 +268,10 @@ function getAverageCertainty(skills: SkillItem[]) {
   }
 
   return Math.round(
-    skills.reduce((sum, skill) => sum + skill.certainty, 0) /
-      skills.length
+    skills.reduce(
+      (sum, skill) => sum + skill.certainty,
+      0
+    ) / skills.length
   );
 }
 
@@ -252,8 +288,10 @@ function getAverageTrend(skills: SkillItem[]) {
   }
 
   return (
-    skills.reduce((sum, skill) => sum + skill.trend, 0) /
-    skills.length
+    skills.reduce(
+      (sum, skill) => sum + skill.trend,
+      0
+    ) / skills.length
   );
 }
 
@@ -300,22 +338,36 @@ function getCategoryStats(skills: SkillItem[]) {
       };
     }
 
-    categories[skill.category].values.push(skill.value);
-    categories[skill.category].evidence += skill.evidence;
-    categories[skill.category].trend.push(skill.trend);
+    categories[skill.category].values.push(
+      skill.value
+    );
+
+    categories[skill.category].evidence +=
+      skill.evidence;
+
+    categories[skill.category].trend.push(
+      skill.trend
+    );
   });
 
   return Object.entries(categories)
     .map(([category, data]) => ({
       category,
+
       value: Math.round(
-        data.values.reduce((a, b) => a + b, 0) /
-          data.values.length
+        data.values.reduce(
+          (a, b) => a + b,
+          0
+        ) / data.values.length
       ),
+
       evidence: data.evidence,
+
       trend:
-        data.trend.reduce((a, b) => a + b, 0) /
-        data.trend.length,
+        data.trend.reduce(
+          (a, b) => a + b,
+          0
+        ) / data.trend.length,
     }))
     .sort((a, b) => b.value - a.value);
 }
@@ -334,66 +386,119 @@ export default function LearnScreen() {
   const [profile, setProfile] =
     useState<LearningProfile | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
-  const [showAllSkills, setShowAllSkills] = useState(false);
-  const [showCategories, setShowCategories] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] =
+    useState(true);
 
-  const loadLearning = useCallback(async () => {
-    try {
-      setError(null);
+  const [starting, setStarting] =
+    useState(false);
 
-      const controller = new AbortController();
+  const [showAllSkills, setShowAllSkills] =
+    useState(false);
 
-      const timeout = setTimeout(() => {
-        controller.abort();
-      }, 10000);
+  const [showCategories, setShowCategories] =
+    useState(false);
 
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const loadLearning = useCallback(
+    async () => {
       try {
-        const response = await authFetch("/state", {
-          signal: controller.signal,
-        });
+        setError(null);
 
-        if (!response.ok) {
-          throw new Error(
-            `Request failed with status ${response.status}`
+        const controller =
+          new AbortController();
+
+        const timeout = setTimeout(() => {
+          controller.abort();
+        }, 10000);
+
+        try {
+          const response =
+            await authFetch("/state", {
+              signal: controller.signal,
+            });
+
+          if (!response.ok) {
+            throw new Error(
+              `Request failed with status ${response.status}`
+            );
+          }
+
+          const data =
+            (await response.json()) as StateResponse;
+
+          console.log(
+            "LEARNING STATE:",
+            JSON.stringify(
+              data.learning,
+              null,
+              2
+            )
           );
+
+          setProfile(
+            data.learning ?? null
+          );
+        } finally {
+          clearTimeout(timeout);
         }
-
-        const data =
-          (await response.json()) as StateResponse;
-
+      } catch (error) {
         console.log(
-          "Learning state updated:",
-          JSON.stringify(data.learning, null, 2)
+          "Failed to load learning state:",
+          error
         );
 
-        setProfile(data.learning ?? null);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load learning data"
+        );
       } finally {
-        clearTimeout(timeout);
+        setLoading(false);
       }
-    } catch (error) {
-      console.log(
-        "Failed to load learning state:",
-        error
-      );
+    },
+    []
+  );
 
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load learning data"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  /*
+   * Initial load.
+   */
+  useEffect(() => {
+    loadLearning();
+  }, [loadLearning]);
 
+  /*
+   * Reload whenever the user opens
+   * the Learn tab.
+   */
   useFocusEffect(
     useCallback(() => {
       loadLearning();
     }, [loadLearning])
   );
+
+  /*
+   * Reload immediately after Chat
+   * changes the learning profile.
+   */
+  useEffect(() => {
+    const subscription =
+      DeviceEventEmitter.addListener(
+        "learningUpdated",
+        () => {
+          console.log(
+            "Learning update event received"
+          );
+
+          loadLearning();
+        }
+      );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [loadLearning]);
 
   const startSession = async () => {
     if (starting) {
@@ -404,12 +509,13 @@ export default function LearnScreen() {
       setStarting(true);
       setError(null);
 
-      const response = await authFetch(
-        "/learning/session/start",
-        {
-          method: "POST",
-        }
-      );
+      const response =
+        await authFetch(
+          "/learning/session/start",
+          {
+            method: "POST",
+          }
+        );
 
       if (!response.ok) {
         throw new Error(
@@ -437,7 +543,10 @@ export default function LearnScreen() {
   };
 
   const skills = useMemo(
-    () => (profile ? getSkillList(profile) : []),
+    () =>
+      profile
+        ? getSkillList(profile)
+        : [],
     [profile]
   );
 
@@ -446,21 +555,32 @@ export default function LearnScreen() {
     [skills]
   );
 
-  const progress = getProgress(skills);
-  const certainty = getAverageCertainty(skills);
-  const evidence = getEvidence(skills);
-  const averageTrend = getAverageTrend(skills);
+  const progress =
+    getProgress(skills);
 
-  const weakestSkill = getWeakestSkill(skills);
+  const certainty =
+    getAverageCertainty(skills);
 
-  const visibleSkills = showAllSkills
-    ? skills
-    : skills.slice(0, 4);
+  const evidence =
+    getEvidence(skills);
 
-  const identity = profile?.learner?.identity;
+  const averageTrend =
+    getAverageTrend(skills);
+
+  const weakestSkill =
+    getWeakestSkill(skills);
+
+  const visibleSkills =
+    showAllSkills
+      ? skills
+      : skills.slice(0, 8);
+
+  const identity =
+    profile?.learner?.identity;
 
   const learningLanguage =
-    identity?.learning_language ?? "English";
+    identity?.learning_language ??
+    "English";
 
   const level =
     identity?.level ??
@@ -468,7 +588,8 @@ export default function LearnScreen() {
     "Unknown";
 
   const preferredActivity =
-    profile?.learner?.learning_preferences
+    profile?.learner
+      ?.learning_preferences
       ?.preferred_activity ??
     profile?.analysis?.activity?.name ??
     profile?.strategy?.activity ??
@@ -482,18 +603,23 @@ export default function LearnScreen() {
 
   const sessionsCount =
     profile?.sessions?.length ??
-    profile?.learner?.memory?.statistics
-      ?.total_sessions ??
+    profile?.learner?.memory
+      ?.statistics?.total_sessions ??
     0;
 
   const streak =
-    profile?.learner?.memory?.statistics?.streak ?? 0;
+    profile?.learner?.memory
+      ?.statistics?.streak ?? 0;
 
   const learningTrend =
-    getTrendLabel(averageTrend);
+    getTrendLabel(
+      averageTrend
+    );
 
   const trendEmoji =
-    getTrendEmoji(averageTrend);
+    getTrendEmoji(
+      averageTrend
+    );
 
   const motivation =
     profile?.learner?.motivation ??
@@ -501,10 +627,12 @@ export default function LearnScreen() {
 
   const motivationScore = motivation
     ? Math.round(
-        (motivation.consistency ?? 0) +
+        (
+          (motivation.consistency ?? 0) +
           (motivation.effort ?? 0) +
           (motivation.engagement ?? 0)
-      ) / 3
+        ) / 3
+      )
     : 0;
 
   const recommendedActivity =
@@ -554,29 +682,43 @@ export default function LearnScreen() {
           <View style={styles.heroCard}>
             <View style={styles.heroTop}>
               <View>
-                <Text style={styles.heroEyebrow}>
+                <Text
+                  style={styles.heroEyebrow}
+                >
                   OVERALL PROGRESS
                 </Text>
 
-                <Text style={styles.heroValue}>
+                <Text
+                  style={styles.heroValue}
+                >
                   {progress}%
                 </Text>
 
-                <Text style={styles.heroDescription}>
-                  Your learning profile is evolving
-                  through practice.
+                <Text
+                  style={styles.heroDescription}
+                >
+                  Your learning profile is
+                  evolving through practice.
                 </Text>
               </View>
 
-              <View style={styles.heroFlower}>
-                <Text style={styles.heroFlowerText}>
+              <View
+                style={styles.heroFlower}
+              >
+                <Text
+                  style={
+                    styles.heroFlowerText
+                  }
+                >
                   🌸
                 </Text>
               </View>
             </View>
 
             <View
-              style={styles.heroProgressBackground}
+              style={
+                styles.heroProgressBackground
+              }
             >
               <View
                 style={[
@@ -590,35 +732,51 @@ export default function LearnScreen() {
 
             <View style={styles.statRow}>
               <View style={styles.stat}>
-                <Text style={styles.statValue}>
+                <Text
+                  style={styles.statValue}
+                >
                   {skills.length}
                 </Text>
 
-                <Text style={styles.statLabel}>
+                <Text
+                  style={styles.statLabel}
+                >
                   skills
                 </Text>
               </View>
 
-              <View style={styles.statDivider} />
+              <View
+                style={styles.statDivider}
+              />
 
               <View style={styles.stat}>
-                <Text style={styles.statValue}>
+                <Text
+                  style={styles.statValue}
+                >
                   {evidence}
                 </Text>
 
-                <Text style={styles.statLabel}>
+                <Text
+                  style={styles.statLabel}
+                >
                   evidence
                 </Text>
               </View>
 
-              <View style={styles.statDivider} />
+              <View
+                style={styles.statDivider}
+              />
 
               <View style={styles.stat}>
-                <Text style={styles.statValue}>
+                <Text
+                  style={styles.statValue}
+                >
                   {certainty}%
                 </Text>
 
-                <Text style={styles.statLabel}>
+                <Text
+                  style={styles.statLabel}
+                >
                   certainty
                 </Text>
               </View>
@@ -627,23 +785,37 @@ export default function LearnScreen() {
 
           {/* MOMENTUM */}
 
-          <View style={styles.momentumCard}>
-            <View style={styles.momentumIcon}>
-              <Text style={styles.momentumEmoji}>
+          <View
+            style={styles.momentumCard}
+          >
+            <View
+              style={styles.momentumIcon}
+            >
+              <Text
+                style={styles.momentumEmoji}
+              >
                 {trendEmoji}
               </Text>
             </View>
 
-            <View style={styles.momentumInfo}>
-              <Text style={styles.momentumLabel}>
+            <View
+              style={styles.momentumInfo}
+            >
+              <Text
+                style={styles.momentumLabel}
+              >
                 LEARNING MOMENTUM
               </Text>
 
-              <Text style={styles.momentumTitle}>
+              <Text
+                style={styles.momentumTitle}
+              >
                 {learningTrend}
               </Text>
 
-              <Text style={styles.momentumText}>
+              <Text
+                style={styles.momentumText}
+              >
                 Based on changes across your
                 current skill profile.
               </Text>
@@ -652,78 +824,134 @@ export default function LearnScreen() {
 
           {/* SNAPSHOT */}
 
-          <Text style={styles.sectionTitle}>
+          <Text
+            style={styles.sectionTitle}
+          >
             Learning snapshot
           </Text>
 
-          <View style={styles.snapshotCard}>
-            <View style={styles.snapshotItem}>
-              <Text style={styles.snapshotIcon}>
+          <View
+            style={styles.snapshotCard}
+          >
+            <View
+              style={styles.snapshotItem}
+            >
+              <Text
+                style={styles.snapshotIcon}
+              >
                 🌐
               </Text>
 
-              <View style={styles.snapshotInfo}>
-                <Text style={styles.snapshotLabel}>
+              <View
+                style={styles.snapshotInfo}
+              >
+                <Text
+                  style={styles.snapshotLabel}
+                >
                   Language
                 </Text>
 
-                <Text style={styles.snapshotValue}>
-                  {formatTitle(learningLanguage)}
+                <Text
+                  style={styles.snapshotValue}
+                >
+                  {formatTitle(
+                    learningLanguage
+                  )}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.snapshotDivider} />
+            <View
+              style={styles.snapshotDivider}
+            />
 
-            <View style={styles.snapshotItem}>
-              <Text style={styles.snapshotIcon}>
+            <View
+              style={styles.snapshotItem}
+            >
+              <Text
+                style={styles.snapshotIcon}
+              >
                 📈
               </Text>
 
-              <View style={styles.snapshotInfo}>
-                <Text style={styles.snapshotLabel}>
+              <View
+                style={styles.snapshotInfo}
+              >
+                <Text
+                  style={styles.snapshotLabel}
+                >
                   Level
                 </Text>
 
-                <Text style={styles.snapshotValue}>
+                <Text
+                  style={styles.snapshotValue}
+                >
                   {formatTitle(level)}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.snapshotDivider} />
+            <View
+              style={styles.snapshotDivider}
+            />
 
-            <View style={styles.snapshotItem}>
-              <Text style={styles.snapshotIcon}>
+            <View
+              style={styles.snapshotItem}
+            >
+              <Text
+                style={styles.snapshotIcon}
+              >
                 💬
               </Text>
 
-              <View style={styles.snapshotInfo}>
-                <Text style={styles.snapshotLabel}>
+              <View
+                style={styles.snapshotInfo}
+              >
+                <Text
+                  style={styles.snapshotLabel}
+                >
                   Preferred activity
                 </Text>
 
-                <Text style={styles.snapshotValue}>
-                  {formatTitle(preferredActivity)}
+                <Text
+                  style={styles.snapshotValue}
+                >
+                  {formatTitle(
+                    preferredActivity
+                  )}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.snapshotDivider} />
+            <View
+              style={styles.snapshotDivider}
+            />
 
-            <View style={styles.snapshotItem}>
-              <Text style={styles.snapshotIcon}>
+            <View
+              style={styles.snapshotItem}
+            >
+              <Text
+                style={styles.snapshotIcon}
+              >
                 🎯
               </Text>
 
-              <View style={styles.snapshotInfo}>
-                <Text style={styles.snapshotLabel}>
+              <View
+                style={styles.snapshotInfo}
+              >
+                <Text
+                  style={styles.snapshotLabel}
+                >
                   Goal
                 </Text>
 
-                <Text style={styles.snapshotValue}>
+                <Text
+                  style={styles.snapshotValue}
+                >
                   {primaryGoal
-                    ? formatTitle(primaryGoal)
+                    ? formatTitle(
+                        primaryGoal
+                      )
                     : "Not set"}
                 </Text>
               </View>
@@ -732,75 +960,112 @@ export default function LearnScreen() {
 
           {/* MOTIVATION */}
 
-          <View style={styles.motivationCard}>
-            <View style={styles.motivationTop}>
-              <Text style={styles.motivationTitle}>
+          <View
+            style={styles.motivationCard}
+          >
+            <View
+              style={styles.motivationTop}
+            >
+              <Text
+                style={styles.motivationTitle}
+              >
                 Motivation
               </Text>
 
-              <Text style={styles.motivationValue}>
-                {Math.round(motivationScore)}%
+              <Text
+                style={styles.motivationValue}
+              >
+                {motivationScore}%
               </Text>
             </View>
 
-            <View style={styles.motivationBackground}>
+            <View
+              style={
+                styles.motivationBackground
+              }
+            >
               <View
-                style={[
-                  styles.motivationProgress,
-                  {
-                    width: `${clamp(
-                      motivationScore
-                    )}%`,
-                  },
-                ]}
+                style={
+                  [
+                    styles.motivationProgress,
+                    {
+                      width: `${clamp(
+                        motivationScore
+                      )}%`,
+                    },
+                  ]
+                }
               />
             </View>
 
-            <View style={styles.motivationRow}>
-              <Text style={styles.motivationMeta}>
+            <View
+              style={styles.motivationRow}
+            >
+              <Text
+                style={styles.motivationMeta}
+              >
                 Consistency{" "}
                 {Math.round(
                   motivation?.consistency ?? 0
-                )}%
+                )}
+                %
               </Text>
 
-              <Text style={styles.motivationMeta}>
+              <Text
+                style={styles.motivationMeta}
+              >
                 Effort{" "}
                 {Math.round(
                   motivation?.effort ?? 0
-                )}%
+                )}
+                %
               </Text>
 
-              <Text style={styles.motivationMeta}>
+              <Text
+                style={styles.motivationMeta}
+              >
                 Engagement{" "}
                 {Math.round(
                   motivation?.engagement ?? 0
-                )}%
+                )}
+                %
               </Text>
             </View>
           </View>
 
           {/* STATISTICS */}
 
-          <View style={styles.miniStatsCard}>
+          <View
+            style={styles.miniStatsCard}
+          >
             <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>
+              <Text
+                style={styles.miniStatValue}
+              >
                 {sessionsCount}
               </Text>
 
-              <Text style={styles.miniStatLabel}>
+              <Text
+                style={styles.miniStatLabel}
+              >
                 sessions
               </Text>
             </View>
 
-            <View style={styles.miniStatDivider} />
+            <View
+              style={styles.miniStatDivider}
+            />
 
             <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>
+              <Text
+                style={styles.miniStatValue}
+              >
                 {streak}
               </Text>
 
-              <Text style={styles.miniStatLabel}>
+              <Text
+                style={styles.miniStatLabel}
+              >
                 streak
               </Text>
             </View>
@@ -809,18 +1074,24 @@ export default function LearnScreen() {
           {/* SKILLS */}
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={styles.sectionTitle}
+            >
               Skill profile
             </Text>
 
-            {skills.length > 4 && (
+            {skills.length > 8 && (
               <Pressable
                 onPress={() =>
-                  setShowAllSkills((value) => !value)
+                  setShowAllSkills(
+                    (value) => !value
+                  )
                 }
                 hitSlop={8}
               >
-                <Text style={styles.viewAll}>
+                <Text
+                  style={styles.viewAll}
+                >
                   {showAllSkills
                     ? "Show less"
                     : "View all"}
@@ -830,65 +1101,103 @@ export default function LearnScreen() {
           </View>
 
           {visibleSkills.length > 0 ? (
-            <View style={styles.skillsCard}>
-              {visibleSkills.map((item, index) => (
-                <View
-                  key={`${item.category}.${item.skill}`}
-                  style={[
-                    styles.skillItem,
-                    index ===
-                      visibleSkills.length - 1 &&
-                      styles.skillItemLast,
-                  ]}
-                >
-                  <View style={styles.skillHeader}>
-                    <View style={styles.skillNameArea}>
-                      <Text style={styles.skillName}>
-                        {formatTitle(item.skill)}
-                      </Text>
+            <View
+              style={styles.skillsCard}
+            >
+              {visibleSkills.map(
+                (item, index) => (
+                  <View
+                    key={`${item.category}.${item.skill}`}
+                    style={[
+                      styles.skillItem,
+                      index ===
+                        visibleSkills.length -
+                          1 &&
+                        styles.skillItemLast,
+                    ]}
+                  >
+                    <View
+                      style={styles.skillHeader}
+                    >
+                      <View
+                        style={
+                          styles.skillNameArea
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.skillName
+                          }
+                        >
+                          {formatTitle(
+                            item.skill
+                          )}
+                        </Text>
 
-                      <Text style={styles.skillCategory}>
-                        {formatTitle(item.category)}
+                        <Text
+                          style={
+                            styles.skillCategory
+                          }
+                        >
+                          {formatTitle(
+                            item.category
+                          )}
+                        </Text>
+                      </View>
+
+                      <Text
+                        style={
+                          styles.skillValue
+                        }
+                      >
+                        {Math.round(
+                          item.value
+                        )}
+                        %
                       </Text>
                     </View>
 
-                    <Text style={styles.skillValue}>
-                      {Math.round(item.value)}%
+                    <View
+                      style={
+                        styles.skillBackground
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.skillProgress,
+                          {
+                            width: `${item.value}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    <Text
+                      style={styles.skillMeta}
+                    >
+                      {item.evidence > 0
+                        ? `${item.evidence} evidence · ${Math.round(
+                            item.certainty
+                          )}% certainty`
+                        : "Not assessed yet"}
                     </Text>
                   </View>
-
-                  <View style={styles.skillBackground}>
-                    <View
-                      style={[
-                        styles.skillProgress,
-                        {
-                          width: `${item.value}%`,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  <Text style={styles.skillMeta}>
-                    {item.evidence > 0
-                      ? `${item.evidence} ${
-                          item.evidence === 1
-                            ? "evidence"
-                            : "evidence"
-                        } · ${Math.round(
-                          item.certainty
-                        )}% certainty`
-                      : "Not assessed yet"}
-                  </Text>
-                </View>
-              ))}
+                )
+              )}
             </View>
           ) : (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>
+            <View
+              style={styles.emptyCard}
+            >
+              <Text
+                style={styles.emptyTitle}
+              >
                 Your profile is still growing
               </Text>
 
-              <Text style={styles.emptyText}>
+              <Text
+                style={styles.emptyText}
+              >
                 Start practicing to build your
                 first skill evidence.
               </Text>
@@ -900,73 +1209,116 @@ export default function LearnScreen() {
           {categories.length > 0 && (
             <>
               <Pressable
-                style={styles.categoryHeader}
+                style={
+                  styles.categoryHeader
+                }
                 onPress={() =>
-                  setShowCategories((value) => !value)
+                  setShowCategories(
+                    (value) => !value
+                  )
                 }
               >
                 <View>
                   <Text
-                    style={styles.categoryHeaderTitle}
+                    style={
+                      styles.categoryHeaderTitle
+                    }
                   >
                     Skill categories
                   </Text>
 
                   <Text
-                    style={styles.categoryHeaderText}
+                    style={
+                      styles.categoryHeaderText
+                    }
                   >
-                    See how different areas compare
+                    See how different areas
+                    compare
                   </Text>
                 </View>
 
-                <Text style={styles.categoryArrow}>
-                  {showCategories ? "⌃" : "⌄"}
+                <Text
+                  style={styles.categoryArrow}
+                >
+                  {showCategories
+                    ? "⌃"
+                    : "⌄"}
                 </Text>
               </Pressable>
 
               {showCategories && (
-                <View style={styles.categoriesCard}>
-                  {categories.map((category, index) => (
-                    <View
-                      key={category.category}
-                      style={[
-                        styles.categoryItem,
-                        index ===
-                          categories.length - 1 &&
-                          styles.categoryItemLast,
-                      ]}
-                    >
-                      <View style={styles.categoryTop}>
-                        <Text style={styles.categoryName}>
-                          {formatTitle(
-                            category.category
-                          )}
-                        </Text>
-
-                        <Text style={styles.categoryValue}>
-                          {category.value}%
-                        </Text>
-                      </View>
-
+                <View
+                  style={
+                    styles.categoriesCard
+                  }
+                >
+                  {categories.map(
+                    (category, index) => (
                       <View
-                        style={styles.categoryBackground}
+                        key={
+                          category.category
+                        }
+                        style={[
+                          styles.categoryItem,
+                          index ===
+                            categories.length -
+                              1 &&
+                            styles.categoryItemLast,
+                        ]}
                       >
                         <View
-                          style={[
-                            styles.categoryProgress,
-                            {
-                              width: `${category.value}%`,
-                            },
-                          ]}
-                        />
-                      </View>
+                          style={
+                            styles.categoryTop
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.categoryName
+                            }
+                          >
+                            {formatTitle(
+                              category.category
+                            )}
+                          </Text>
 
-                      <Text style={styles.categoryMeta}>
-                        {category.evidence} evidence ·{" "}
-                        {getTrendLabel(category.trend)}
-                      </Text>
-                    </View>
-                  ))}
+                          <Text
+                            style={
+                              styles.categoryValue
+                            }
+                          >
+                            {category.value}%
+                          </Text>
+                        </View>
+
+                        <View
+                          style={
+                            styles.categoryBackground
+                          }
+                        >
+                          <View
+                            style={[
+                              styles.categoryProgress,
+                              {
+                                width: `${category.value}%`,
+                              },
+                            ]}
+                          />
+                        </View>
+
+                        <Text
+                          style={
+                            styles.categoryMeta
+                          }
+                        >
+                          {category.evidence} evidence
+                          {" · "}
+                          {getTrendLabel(
+                            category.trend
+                          )}
+                        </Text>
+                      </View>
+                    )
+                  )}
                 </View>
               )}
             </>
@@ -976,27 +1328,45 @@ export default function LearnScreen() {
 
           {weakestSkill && (
             <>
-              <Text style={styles.sectionTitle}>
+              <Text
+                style={styles.sectionTitle}
+              >
                 Focus area
               </Text>
 
-              <View style={styles.focusCard}>
-                <View style={styles.focusIcon}>
-                  <Text style={styles.focusEmoji}>
+              <View
+                style={styles.focusCard}
+              >
+                <View
+                  style={styles.focusIcon}
+                >
+                  <Text
+                    style={styles.focusEmoji}
+                  >
                     🌱
                   </Text>
                 </View>
 
-                <View style={styles.focusInfo}>
-                  <Text style={styles.focusLabel}>
+                <View
+                  style={styles.focusInfo}
+                >
+                  <Text
+                    style={styles.focusLabel}
+                  >
                     NEXT TO GROW
                   </Text>
 
-                  <Text style={styles.focusTitle}>
-                    {formatTitle(weakestSkill.skill)}
+                  <Text
+                    style={styles.focusTitle}
+                  >
+                    {formatTitle(
+                      weakestSkill.skill
+                    )}
                   </Text>
 
-                  <Text style={styles.focusText}>
+                  <Text
+                    style={styles.focusText}
+                  >
                     This is currently the skill
                     with the most room to grow.
                   </Text>
@@ -1009,34 +1379,62 @@ export default function LearnScreen() {
 
           {strategy && (
             <>
-              <Text style={styles.sectionTitle}>
+              <Text
+                style={styles.sectionTitle}
+              >
                 Learning strategy
               </Text>
 
-              <View style={styles.strategyCard}>
-                <View style={styles.strategyIcon}>
-                  <Text style={styles.strategyEmoji}>
+              <View
+                style={styles.strategyCard}
+              >
+                <View
+                  style={styles.strategyIcon}
+                >
+                  <Text
+                    style={
+                      styles.strategyEmoji
+                    }
+                  >
                     🧠
                   </Text>
                 </View>
 
-                <View style={styles.strategyInfo}>
-                  <Text style={styles.strategyLabel}>
+                <View
+                  style={styles.strategyInfo}
+                >
+                  <Text
+                    style={styles.strategyLabel}
+                  >
                     CURRENT APPROACH
                   </Text>
 
-                  <Text style={styles.strategyTitle}>
-                    {formatTitle(strategy.activity)}
+                  <Text
+                    style={styles.strategyTitle}
+                  >
+                    {formatTitle(
+                      strategy.activity
+                    )}
                   </Text>
 
-                  <Text style={styles.strategyText}>
+                  <Text
+                    style={styles.strategyText}
+                  >
                     {strategy.reason ??
                       "Your learning strategy is adapting to your progress."}
                   </Text>
 
                   {strategy.difficulty && (
-                    <View style={styles.strategyTag}>
-                      <Text style={styles.strategyTagText}>
+                    <View
+                      style={
+                        styles.strategyTag
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.strategyTagText
+                        }
+                      >
                         {formatTitle(
                           strategy.difficulty
                         )}
@@ -1052,37 +1450,59 @@ export default function LearnScreen() {
 
           {recommendedActivity && (
             <>
-              <Text style={styles.sectionTitle}>
+              <Text
+                style={styles.sectionTitle}
+              >
                 Your next activity
               </Text>
 
-              <View style={styles.activityCard}>
-                <View style={styles.activityIcon}>
-                  <Text style={styles.activityEmoji}>
+              <View
+                style={styles.activityCard}
+              >
+                <View
+                  style={styles.activityIcon}
+                >
+                  <Text
+                    style={
+                      styles.activityEmoji
+                    }
+                  >
                     🎤
                   </Text>
                 </View>
 
-                <View style={styles.activityInfo}>
-                  <Text style={styles.activityLabel}>
+                <View
+                  style={styles.activityInfo}
+                >
+                  <Text
+                    style={styles.activityLabel}
+                  >
                     RECOMMENDED PRACTICE
                   </Text>
 
-                  <Text style={styles.activityTitle}>
+                  <Text
+                    style={styles.activityTitle}
+                  >
                     {recommendedActivity.name ??
                       "General practice"}
                   </Text>
 
-                  <Text style={styles.activitySubtitle}>
+                  <Text
+                    style={
+                      styles.activitySubtitle
+                    }
+                  >
                     {recommendedActivity.description ??
                       "Practice based on your current learning profile."}
                   </Text>
 
-                  <Text style={styles.activityMeta}>
+                  <Text
+                    style={styles.activityMeta}
+                  >
                     {formatTitle(
                       recommendedActivity.skill
-                    )}{" "}
-                    ·{" "}
+                    )}
+                    {" · "}
                     {formatTitle(
                       recommendedActivity.difficulty
                     )}
@@ -1098,15 +1518,22 @@ export default function LearnScreen() {
           <Pressable
             style={[
               styles.startButton,
-              starting && styles.startButtonDisabled,
+              starting &&
+                styles.startButtonDisabled,
             ]}
             onPress={startSession}
             disabled={starting}
           >
             {starting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator
+                color="#FFFFFF"
+              />
             ) : (
-              <Text style={styles.startButtonText}>
+              <Text
+                style={
+                  styles.startButtonText
+                }
+              >
                 Start practice
               </Text>
             )}

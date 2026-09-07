@@ -458,6 +458,10 @@ class LearningMemory:
             "skills":
                 self.skills,
 
+            "goals": self.goals,
+            
+            "motivation": self.motivation,
+
             "errors":
                 self.errors,
 
@@ -579,6 +583,23 @@ class LearningMemory:
         self.skills = data.get(
             "skills",
             {}
+        )
+
+        self.goals = data.get(
+            "goals",
+            {
+                "primary": None,
+                "secondary": []
+            }
+        )
+
+        self.motivation = data.get(
+            "motivation",
+            {
+                "consistency": 50,
+                "effort": 50,
+                "engagement": 50
+            }
         )
 
 

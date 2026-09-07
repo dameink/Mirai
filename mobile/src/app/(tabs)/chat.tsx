@@ -1,3 +1,4 @@
+
 import {
   View,
   Text,
@@ -10,6 +11,8 @@ import {
   Platform,
   Animated,
   Easing,
+  DeviceEventEmitter,
+  Keyboard,
 } from "react-native";
 
 import {
@@ -481,6 +484,32 @@ export default function ChatScreen() {
   }, [messages]);
 
   /* =======================================================
+     KEYBOARD AUTO SCROLL
+     ======================================================= */
+
+  useEffect(() => {
+    const eventName =
+      Platform.OS === "ios"
+        ? "keyboardWillShow"
+        : "keyboardDidShow";
+
+    const keyboardListener = Keyboard.addListener(
+      eventName,
+      () => {
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({
+            animated: true,
+          });
+        }, 100);
+      }
+    );
+
+    return () => {
+      keyboardListener.remove();
+    };
+  }, []);
+
+  /* =======================================================
      SEND MESSAGE
      ======================================================= */
 
@@ -549,6 +578,8 @@ export default function ChatScreen() {
           "Mirai returned an empty response"
         );
       }
+
+      DeviceEventEmitter.emit("learningUpdated");
 
       const miraiMessage: Message = {
         id: Date.now() + 1,

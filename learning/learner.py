@@ -100,6 +100,7 @@ class Learner:
             user_id=self.user_id
         )
 
+        # Load saved state
         self.load()
 
     # =====================================================
@@ -161,7 +162,7 @@ class Learner:
         """
         Load persistent learning memory.
 
-        A new Learner object is created for every request,
+        A new Learner object may be created for every request,
         therefore loading must happen during initialization.
         """
 
@@ -184,14 +185,20 @@ class Learner:
     # =====================================================
 
     def restore_from_memory(self):
+        """
+        Restore the complete learner state from persistent memory.
+        """
+
         # -------------------------------------------------
         # IDENTITY
         # -------------------------------------------------
 
         saved_identity = self.learning_memory.identity
 
-        if saved_identity:
+        if isinstance(saved_identity, dict):
+
             for key, value in saved_identity.items():
+
                 if value not in (None, ""):
                     self.identity[key] = value
 
@@ -199,10 +206,59 @@ class Learner:
         # GOALS
         # -------------------------------------------------
 
-        last_goal = self.learning_memory.get_last_goal()
+        saved_goals = self.learning_memory.goals
 
-        if last_goal:
-            self.goals["primary"] = last_goal
+        if isinstance(saved_goals, dict):
+
+            saved_primary = saved_goals.get("primary")
+
+            if saved_primary:
+                self.goals["primary"] = saved_primary
+
+            saved_secondary = saved_goals.get("secondary")
+
+            if isinstance(saved_secondary, list):
+                self.goals["secondary"] = list(
+                    saved_secondary
+                )
+
+        # -------------------------------------------------
+        # OLD GOAL HISTORY FALLBACK
+        # -------------------------------------------------
+
+        if not self.goals["primary"]:
+
+            last_goal = (
+                self.learning_memory.get_last_goal()
+            )
+
+            if last_goal:
+                self.goals["primary"] = last_goal
+
+        # -------------------------------------------------
+        # MOTIVATION
+        # -------------------------------------------------
+
+        saved_motivation = (
+            self.learning_memory.motivation
+        )
+
+        if isinstance(saved_motivation, dict):
+
+            for key in (
+                "consistency",
+                "effort",
+                "engagement",
+            ):
+
+                value = saved_motivation.get(key)
+
+                if isinstance(value, (int, float)):
+
+                    self.motivation[key] = max(
+                        0,
+                        min(100, value),
+                    )
 
         # -------------------------------------------------
         # SKILLS
@@ -233,16 +289,16 @@ class Learner:
                     )
 
         # -------------------------------------------------
-        # HISTORY
+        # SKILL HISTORY
         # -------------------------------------------------
 
-        saved_history = (
+        saved_skill_history = (
             self.learning_memory.skill_history
         )
 
-        if isinstance(saved_history, list):
+        if isinstance(saved_skill_history, list):
 
-            for item in saved_history:
+            for item in saved_skill_history:
 
                 if not isinstance(item, dict):
                     continue
@@ -268,13 +324,33 @@ class Learner:
                 current = self.skills[category][skill]
 
                 if "value" in item:
-                    current["value"] = item["value"]
+
+                    value = item["value"]
+
+                    if isinstance(value, (int, float)):
+                        current["value"] = max(
+                            0,
+                            min(100, value),
+                        )
 
                 if "evidence_count" in item:
-                    current["evidence_count"] = max(
-                        current.get("evidence_count", 0),
-                        item["evidence_count"],
+
+                    evidence_count = (
+                        item["evidence_count"]
                     )
+
+                    if isinstance(
+                        evidence_count,
+                        (int, float),
+                    ):
+
+                        current["evidence_count"] = max(
+                            current.get(
+                                "evidence_count",
+                                0,
+                            ),
+                            evidence_count,
+                        )
 
         # -------------------------------------------------
         # PREFERENCES
@@ -291,6 +367,20 @@ class Learner:
                 if key in self.learning_preferences:
                     self.learning_preferences[key] = value
 
+        # -------------------------------------------------
+        # HISTORY
+        # -------------------------------------------------
+
+        saved_history = (
+            self.learning_memory.history
+        )
+
+        if isinstance(saved_history, list):
+
+            self.history = list(
+                saved_history
+            )
+
     # =====================================================
     # SAVE
     # =====================================================
@@ -300,43 +390,73 @@ class Learner:
         Persist the complete current learning state.
         """
 
-        # Identity
+        # -------------------------------------------------
+        # IDENTITY
+        # -------------------------------------------------
+
         self.learning_memory.identity = dict(
             self.identity
         )
 
-        # Skills
+        # -------------------------------------------------
+        # SKILLS
+        # -------------------------------------------------
+
         self.learning_memory.skills = self.skills
 
-        # Goals
-        self.learning_memory.goals = dict(
-            self.goals
-        )
+        # -------------------------------------------------
+        # GOALS
+        # -------------------------------------------------
 
-        # Preferences
+        self.learning_memory.goals = {
+            "primary": self.goals.get("primary"),
+            "secondary": list(
+                self.goals.get("secondary", [])
+            ),
+        }
+
+        # -------------------------------------------------
+        # PREFERENCES
+        # -------------------------------------------------
+
         self.learning_memory.preferences = dict(
             self.learning_preferences
         )
 
-        # Motivation
+        # -------------------------------------------------
+        # MOTIVATION
+        # -------------------------------------------------
+
         self.learning_memory.motivation = dict(
             self.motivation
         )
 
-        # History
+        # -------------------------------------------------
+        # HISTORY
+        # -------------------------------------------------
+
         self.learning_memory.history = list(
             self.history
         )
 
-        self.memory_storage.save(
-            self.learning_memory
-        )
+        # -------------------------------------------------
+        # STORAGE
+        # -------------------------------------------------
+
+        if self.user_id:
+            self.memory_storage.save(
+                self.learning_memory
+            )
 
     # =====================================================
     # CREATE / GET SKILL
     # =====================================================
 
-    def get_skill(self, category, skill):
+    def get_skill(
+        self,
+        category,
+        skill,
+    ):
 
         if category not in self.skills:
             self.skills[category] = {}
@@ -359,6 +479,7 @@ class Learner:
         value_change,
         certainty_change,
     ):
+
         current = self.get_skill(
             category,
             skill,
@@ -415,6 +536,7 @@ class Learner:
         category,
         skill,
     ):
+
         current = self.get_skill(
             category,
             skill,
@@ -432,6 +554,7 @@ class Learner:
         self,
         category,
     ):
+
         if category not in self.skills:
             return None
 
@@ -442,7 +565,10 @@ class Learner:
             if not isinstance(skill, dict):
                 continue
 
-            if skill.get("evidence_count", 0) > 0:
+            if skill.get(
+                "evidence_count",
+                0,
+            ) > 0:
 
                 values.append(
                     skill.get("value", 0)
@@ -526,10 +652,13 @@ class Learner:
         primary,
         secondary=None,
     ):
+
         self.goals["primary"] = primary
 
-        if secondary:
-            self.goals["secondary"] = secondary
+        if secondary is not None:
+            self.goals["secondary"] = list(
+                secondary
+            )
 
         self.learning_memory.add_goal(
             primary
@@ -546,6 +675,7 @@ class Learner:
         key,
         value,
     ):
+
         if key not in self.learning_preferences:
             return
 
@@ -567,6 +697,7 @@ class Learner:
         event,
         message,
     ):
+
         record = {
             "event": event,
             "message": message,
@@ -590,6 +721,7 @@ class Learner:
         event,
         message,
     ):
+
         message_lower = (
             message or ""
         ).lower()
@@ -598,11 +730,15 @@ class Learner:
 
             if "ielts" in message_lower:
 
-                self.set_goal("ielts")
+                self.set_goal(
+                    "ielts"
+                )
 
             elif "english" in message_lower:
 
-                self.set_goal("conversation")
+                self.set_goal(
+                    "conversation"
+                )
 
             self.add_learning_event(
                 event,
@@ -654,6 +790,7 @@ class Learner:
         improvements=None,
         difficulty=None,
     ):
+
         from datetime import datetime
 
         record = {
@@ -678,6 +815,7 @@ class Learner:
         category,
         value,
     ):
+
         if category not in self.motivation:
             return
 
@@ -741,9 +879,21 @@ class Learner:
     def get_profile(self):
 
         return {
-            "identity": dict(self.identity),
+            "identity": dict(
+                self.identity
+            ),
 
-            "goals": dict(self.goals),
+            "goals": {
+                "primary": self.goals.get(
+                    "primary"
+                ),
+                "secondary": list(
+                    self.goals.get(
+                        "secondary",
+                        [],
+                    )
+                ),
+            },
 
             "skills": self.skills,
 
@@ -759,7 +909,8 @@ class Learner:
                 self.history
             ),
 
-            "memory":
+            "memory": (
                 self.learning_memory
-                .get_memory_summary(),
+                .get_memory_summary()
+            ),
         }
