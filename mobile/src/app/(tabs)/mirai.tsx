@@ -469,7 +469,7 @@ export default function MiraiScreen() {
               <InfoRow
                 icon="🏫"
                 label="University"
-                value="University of Michigan"
+                value="University of Illinois"
               />
 
               <InfoRow
