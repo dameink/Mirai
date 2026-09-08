@@ -26,6 +26,9 @@ from auth.router import router as auth_router
 from auth.router import get_current_user
 from notifications.router import router as notifications_router
 
+from gamification.router import router as gamification_router
+from gamification.service import register_activity, unlock_achievement
+
 
 # =========================================
 # LIFESPAN
@@ -49,6 +52,7 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(notifications_router)
+app.include_router(gamification_router)
 
 
 # =========================================
@@ -88,6 +92,22 @@ def chat_endpoint(
         mode=request.mode,
         user_id=current_user["id"],
         db=db,
+    )
+
+    # -------------------------------------
+    # Gamification
+    # -------------------------------------
+
+    register_activity(
+        db,
+        current_user["id"],
+        xp=10,
+    )
+
+    unlock_achievement(
+        db,
+        current_user["id"],
+        "first_conversation",
     )
 
     return result

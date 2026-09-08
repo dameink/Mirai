@@ -358,3 +358,86 @@ class EmotionalMemory(Base):
         "User",
         back_populates="emotional_memories",
     )
+
+
+class GamificationState(Base):
+    __tablename__ = "gamification_states"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+
+    xp: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    level: Mapped[int] = mapped_column(
+        default=1,
+        nullable=False,
+    )
+
+    streak: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    last_activity_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    daily_goal_target: Mapped[int] = mapped_column(
+        default=5,
+        nullable=False,
+    )
+
+    daily_goal_progress: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    daily_goal_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    user = relationship("User")
+
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+
+    achievement_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    unlocked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    user = relationship("User")
