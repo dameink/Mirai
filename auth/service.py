@@ -276,3 +276,23 @@ def revoke_refresh_token(
     db.commit()
 
     return True
+
+def revoke_all_user_sessions(
+    db: Session,
+    user_id: str,
+):
+    sessions = (
+        db.query(DBSession)
+        .filter(
+            DBSession.user_id == user_id,
+            DBSession.revoked == False,
+        )
+        .all()
+    )
+
+    for session in sessions:
+        session.revoked = True
+
+    db.commit()
+
+    return len(sessions)

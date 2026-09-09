@@ -26,33 +26,40 @@ export default function LoginScreen() {
   >(null);
 
   const handleSubmit = async () => {
-    setError("");
+  setError("");
 
-    const trimmedEmail = email.trim();
+  const trimmedEmail = email.trim();
 
-    if (!trimmedEmail || !password) {
-      setError("Please enter your email and password.");
+  if (!trimmedEmail || !password) {
+    setError("Please enter your email and password.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    if (isRegister) {
+      await register(trimmedEmail, password);
+
+      router.push({
+        pathname: "/verify-email",
+        params: { email: trimmedEmail },
+      });
+
       return;
     }
 
-    setLoading(true);
+    await login(trimmedEmail, password);
 
-    try {
-      if (isRegister) {
-        await register(trimmedEmail, password);
-      } else {
-        await login(trimmedEmail, password);
-      }
-
-      router.replace("/(tabs)/chat");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Authentication failed"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    router.replace("/(tabs)/chat");
+  } catch (err) {
+    setError(
+      err instanceof Error ? err.message : "Authentication failed"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const toggleMode = () => {
     setIsRegister((current) => !current);
@@ -189,6 +196,21 @@ export default function LoginScreen() {
                   : "Login"}
               </Text>
             </Pressable>
+
+            {!isRegister && (
+              <Pressable
+                onPress={() => router.push("/forgot-password")}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.forgotButton,
+                  pressed && styles.forgotPressed,
+                ]}
+              >
+                <Text style={styles.forgotText}>
+                  Forgot password?
+                </Text>
+              </Pressable>
+            )}
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -414,6 +436,22 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#FFFFFF",
     fontSize: 16,
+    fontWeight: "600",
+  },
+
+  forgotButton: {
+    alignItems: "center",
+    marginTop: 16,
+    paddingVertical: 4,
+  },
+
+  forgotPressed: {
+    opacity: 0.6,
+  },
+
+  forgotText: {
+    color: "#B27F7F",
+    fontSize: 13,
     fontWeight: "600",
   },
 
