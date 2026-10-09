@@ -2,9 +2,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
-from auth.security import hash_password, verify_password, create_token
-from db.models import User, Session as DBSession
+from auth.security import hash_password, verify_password, create_token, token_digest
+from db.models import User, PushToken, Session as DBSession
+from db.unit_of_work import user_transaction, UserUnavailableError
 
 
 ACCESS_TOKEN_MINUTES = 15
@@ -66,7 +68,13 @@ def register_user(
     )
 
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if find_user_by_email(db, normalized_email):
+            raise ValueError("A user with this email already exists.")
+        raise
     db.refresh(user)
 
     return user
@@ -95,34 +103,35 @@ def create_auth_tokens(
     db: Session,
     user_id: str,
 ):
-    now = datetime.now(timezone.utc)
+    with user_transaction(db, user_id):
+        now = datetime.now(timezone.utc)
 
-    access_token = create_token()
-    refresh_token = create_token()
+        access_token = create_token()
+        refresh_token = create_token()
 
-    session = DBSession(
-        id=str(uuid.uuid4()),
-        user_id=user_id,
-        access_token=access_token,
-        refresh_token=refresh_token,
-        created_at=now,
-        access_expires_at=(
-            now + timedelta(
-                minutes=ACCESS_TOKEN_MINUTES
-            )
-        ),
-        refresh_expires_at=(
-            now + timedelta(
-                days=REFRESH_TOKEN_DAYS
-            )
-        ),
-        revoked=False,
-    )
+        session = DBSession(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            access_token=token_digest(access_token),
+            refresh_token=token_digest(refresh_token),
+            created_at=now,
+            access_expires_at=(
+                now + timedelta(
+                    minutes=ACCESS_TOKEN_MINUTES
+                )
+            ),
+            refresh_expires_at=(
+                now + timedelta(
+                    days=REFRESH_TOKEN_DAYS
+                )
+            ),
+            revoked=False,
+        )
 
-    db.add(session)
-    db.commit()
+        db.add(session)
+        db.commit()
 
-    return access_token, refresh_token
+        return access_token, refresh_token
 
 
 def get_user_from_access_token(
@@ -132,7 +141,7 @@ def get_user_from_access_token(
     session = (
         db.query(DBSession)
         .filter(
-            DBSession.access_token == access_token,
+            DBSession.access_token == token_digest(access_token),
         )
         .first()
     )
@@ -160,7 +169,7 @@ def get_user_from_access_token(
     if not user:
         return None
 
-    return _user_dict(user)
+    return {**_user_dict(user), "session_id": session.id}
 
 
 def get_session_by_refresh_token(
@@ -170,7 +179,7 @@ def get_session_by_refresh_token(
     session = (
         db.query(DBSession)
         .filter(
-            DBSession.refresh_token == refresh_token,
+            DBSession.refresh_token == token_digest(refresh_token),
             DBSession.revoked == False,
         )
         .first()
@@ -186,8 +195,6 @@ def get_session_by_refresh_token(
     )
 
     if expires_at is None or expires_at <= now:
-        session.revoked = True
-        db.commit()
         return None
 
     return session
@@ -211,75 +218,48 @@ def get_user_from_refresh_token(
     )
 
 
-def rotate_refresh_token(
-    db: Session,
-    old_refresh_token: str,
-):
-    session = get_session_by_refresh_token(
-        db,
-        old_refresh_token,
-    )
-
-    if not session:
+def rotate_refresh_token(db: Session, old_refresh_token: str):
+    session = get_session_by_refresh_token(db, old_refresh_token)
+    if session is None:
+        return None
+    user_id = session.user_id
+    try:
+        with user_transaction(db, user_id):
+            # Re-read after the account lock: reset/deletion/another refresh may win.
+            session = get_session_by_refresh_token(db, old_refresh_token)
+            if session is None:
+                return None
+            session.revoked = True
+            result = create_auth_tokens(db, user_id)
+            successor = get_session_by_refresh_token(db, result[1])
+            db.query(PushToken).filter_by(session_id=session.id).update({'session_id': successor.id}, synchronize_session=False)
+            return result
+    except UserUnavailableError:
         return None
 
+
+def revoke_refresh_token(db: Session, refresh_token: str):
+    session = db.query(DBSession).filter(DBSession.refresh_token == token_digest(refresh_token)).first()
+    if session is None:
+        return False
     user_id = session.user_id
-
-    session.revoked = True
-
-    now = datetime.now(timezone.utc)
-
-    access_token = create_token()
-    new_refresh_token = create_token()
-
-    new_session = DBSession(
-        id=str(uuid.uuid4()),
-        user_id=user_id,
-        access_token=access_token,
-        refresh_token=new_refresh_token,
-        created_at=now,
-        access_expires_at=(
-            now + timedelta(
-                minutes=ACCESS_TOKEN_MINUTES
-            )
-        ),
-        refresh_expires_at=(
-            now + timedelta(
-                days=REFRESH_TOKEN_DAYS
-            )
-        ),
-        revoked=False,
-    )
-
-    db.add(new_session)
-    db.commit()
-
-    return access_token, new_refresh_token
-
-
-def revoke_refresh_token(
-    db: Session,
-    refresh_token: str,
-):
-    session = (
-        db.query(DBSession)
-        .filter(
-            DBSession.refresh_token == refresh_token,
-        )
-        .first()
-    )
-
-    if not session:
+    try:
+        with user_transaction(db, user_id):
+            session = db.query(DBSession).filter(DBSession.refresh_token == token_digest(refresh_token)).first()
+            if session is None:
+                return False
+            session.revoked = True
+            db.query(PushToken).filter_by(session_id=session.id).delete(synchronize_session=False)
+            db.flush()
+            return True
+    except UserUnavailableError:
         return False
 
-    session.revoked = True
-    db.commit()
-
-    return True
 
 def revoke_all_user_sessions(
     db: Session,
     user_id: str,
+    commit: bool = True,
 ):
     sessions = (
         db.query(DBSession)
@@ -292,7 +272,9 @@ def revoke_all_user_sessions(
 
     for session in sessions:
         session.revoked = True
+    db.query(PushToken).filter_by(user_id=user_id).delete(synchronize_session=False)
 
-    db.commit()
+    if commit:
+        db.commit()
 
     return len(sessions)

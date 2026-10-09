@@ -15,7 +15,7 @@ router = APIRouter(
 
 @router.get("")
 def get_gamification(
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user, scope="function"),
     db: Session = Depends(get_db),
 ):
     return get_gamification_data(

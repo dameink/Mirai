@@ -1,3 +1,6 @@
+from copy import deepcopy
+from core.persistence import atomic_write_json, StateCorruptedError
+from core.state_store import read_document, write_document
 import json
 import os
 
@@ -44,11 +47,13 @@ def _emotion_file(user_id=None):
 
 
 def load_emotion(user_id=None):
+    if user_id:
+        return read_document(user_id, "emotion", DEFAULT_EMOTION)
     emotion_file = _emotion_file(user_id)
 
     if not os.path.exists(emotion_file):
         save_emotion(DEFAULT_EMOTION, user_id=user_id)
-        return DEFAULT_EMOTION.copy()
+        return deepcopy(DEFAULT_EMOTION)
 
     try:
         with open(
@@ -58,30 +63,17 @@ def load_emotion(user_id=None):
         ) as file:
             return json.load(file)
 
-    except json.JSONDecodeError:
-        save_emotion(DEFAULT_EMOTION, user_id=user_id)
-        return DEFAULT_EMOTION.copy()
+    except json.JSONDecodeError as error:
+        raise StateCorruptedError("Emotion state needs recovery") from error
 
 
 def save_emotion(emotion, user_id=None):
+    if user_id:
+        write_document(user_id, "emotion", emotion)
+        return
     emotion_file = _emotion_file(user_id)
 
-    os.makedirs(
-        os.path.dirname(emotion_file) or ".",
-        exist_ok=True,
-    )
-
-    with open(
-        emotion_file,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            emotion,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    atomic_write_json(emotion_file, emotion)
 
 
 def change_emotion(

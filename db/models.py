@@ -134,6 +134,7 @@ class Session(Base):
 
 
 class PushToken(Base):
+    session_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     __tablename__ = "push_tokens"
 
     id: Mapped[str] = mapped_column(
@@ -535,3 +536,34 @@ class PasswordReset(Base):
     )
 
     user = relationship("User")
+
+from sqlalchemy import JSON
+
+class UserDocument(Base):
+    __tablename__ = "user_documents"
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), primary_key=True)
+    payload = mapped_column(JSON, nullable=False)
+    source_digest: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+
+class ChatReceipt(Base):
+    __tablename__ = "chat_receipts"
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    response = mapped_column(JSON, nullable=False)
+
+
+class AccountErasureJob(Base):
+    __tablename__ = "account_erasure_jobs"
+    # Deliberately survives deletion of the user, until legacy files are removed.
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+
+
+class PushReceipt(Base):
+    __tablename__ = 'push_receipts'
+    ticket_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

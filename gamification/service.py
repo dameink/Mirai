@@ -166,6 +166,13 @@ def register_activity(
 
 def get_gamification_data(db: Session, user_id: str):
     state = get_or_create_state(db, user_id)
+    now = datetime.now(timezone.utc)
+    if state.daily_goal_date is not None and state.daily_goal_date.date() != now.date():
+        state.daily_goal_progress = 0
+        state.daily_goal_date = now
+    if state.last_activity_at is not None and (now.date() - state.last_activity_at.date()).days > 1:
+        state.streak = 0
+    db.commit()
 
     achievements = (
         db.query(Achievement)

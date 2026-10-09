@@ -871,6 +871,8 @@ class Learner:
 
         if self.user_id:
             self.memory_storage.delete()
+            from core.state_store import write_document
+            write_document(self.user_id, "learning_sessions", [])
 
     # =====================================================
     # PROFILE

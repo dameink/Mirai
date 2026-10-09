@@ -151,42 +151,26 @@ def send_notification(
     and save it to the notification history.
     """
 
-    push_token = (
-        db.query(PushToken)
-        .filter(PushToken.user_id == user_id)
-        .first()
-    )
-
-    if not push_token:
-        return {
-            "success": False,
-            "message": "No push token registered",
-        }
-
-    result = send_push_notification(
-        token=push_token.token,
-        title=notification["title"],
-        body=notification["body"],
-        data=notification.get("data", {}),
-    )
-
-    if not result.get("success"):
-        return result
-
-    history = Notification(
-        user_id=user_id,
-        type=notification["type"],
-        title=notification["title"],
-        body=notification["body"],
-    )
-
+    from db.models import User, Session as AuthSession, PushReceipt
+    user = db.get(User, user_id)
+    if user is None or not user.notifications_enabled:
+        return {'success': False, 'message': 'Notifications disabled'}
+    push_token = (db.query(PushToken).join(AuthSession, PushToken.session_id == AuthSession.id)
+        .filter(PushToken.user_id == user_id, AuthSession.user_id == user_id,
+                AuthSession.revoked == False, AuthSession.refresh_expires_at > datetime.now(timezone.utc))
+        .order_by(PushToken.last_used_at.desc()).first())
+    if push_token is None:
+        return {'success': False, 'message': 'No active push registration'}
+    history = Notification(user_id=user_id, type=notification['type'], title=notification['title'], body=notification['body'])
     db.add(history)
+    db.flush()
+    result = send_push_notification(token=push_token.token, title=history.title, body=history.body,
+        data={**notification.get('data', {}), 'notification_id': history.id})
+    if not result.get('success'):
+        if result.get('code') == 'DeviceNotRegistered': db.delete(push_token)
+        # Record the attempt, preventing aggressive retries after provider outages.
+        db.commit()
+        return result
+    db.add(PushReceipt(ticket_id=result['ticket_id'], user_id=user_id, token=push_token.token))
     db.commit()
-    db.refresh(history)
-
-    return {
-        "success": True,
-        "notification_id": history.id,
-        "type": history.type,
-        "body": history.body,
-    }
+    return {'success': True, 'notification_id': history.id, 'type': history.type, 'body': history.body}

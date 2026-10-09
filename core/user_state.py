@@ -1,7 +1,7 @@
 import os
 
 
-BASE_DIR = "data/users"
+BASE_DIR = os.getenv("MIRAI_USER_DATA_DIR", "data/users")
 
 
 def get_user_dir(user_id):

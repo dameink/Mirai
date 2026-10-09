@@ -138,42 +138,11 @@ class LearningController:
 
 
     def process_message(self, message, context=None):
-        print("🔥 LEARNING USER ID:", self.learner.user_id)
         context = context or {}
-
-        print("\n========== LEARNING DEBUG ==========")
-        print("MESSAGE:", repr(message))
-
         event = detect_learning_event(message)
-        print("EVENT:", event)
-
         evidences = self.conversation_assessment.assess(message)
-        print("EVIDENCE COUNT:", len(evidences))
-
-        for evidence in evidences:
-            print(
-                "EVIDENCE:",
-                evidence.category,
-                evidence.skill,
-                evidence.value,
-                evidence.certainty,
-            )
-
         updates = self.updater.update_from_evidence(evidences)
-
-        print("UPDATES:", updates)
-
         self.learner.memory_storage.save(self.memory)
-
-        print(
-            "FLUENCY AFTER:",
-            self.learner.get_skill(
-                "speaking",
-                "fluency"
-            )
-        )
-
-        print("====================================\n")
 
         return {
             "event": event,
@@ -220,8 +189,10 @@ class LearningController:
         self
     ):
 
+        current = self.get_last_session()
+        if current is not None and not current.completed:
+            return current
         analysis = self.analyze()
-
 
         session = self.sessions.create_session(
 
@@ -236,11 +207,18 @@ class LearningController:
         )
 
 
-        session.add_activity(
-            analysis["activity"]
-        )
+        session.add_activity({
+            "name": "English conversation practice",
+            "skill": "speaking",
+            "subskill": "fluency",
+            "type": "conversation",
+            "difficulty": analysis["difficulty"]["difficulty"],
+            "duration": 15,
+            "description": "Practice English in a written conversation about your day. Ask Mirai for corrections and examples.",
+        })
 
 
+        self.sessions.save()
         return session
 
     def process_goal(self, message):
@@ -556,6 +534,7 @@ class LearningController:
                 ]
             )
 
+        self.sessions.save()
         strategy = self.get_next_strategy()
 
         self.learner.last_strategy = strategy

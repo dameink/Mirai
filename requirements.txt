@@ -6,3 +6,5 @@ python-dotenv>=1,<2
 sqlalchemy>=2,<3
 psycopg[binary]>=3,<4
 httpx==0.28.1
+resend>=2.43,<3
+alembic==1.16.5

@@ -1,5 +1,6 @@
 import os
 
+from fastapi import HTTPException
 import resend
 from dotenv import load_dotenv
 
@@ -11,13 +12,24 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL")
 
 
+def require_email_configuration():
+    from core.operations import closed_beta
+    if closed_beta():
+        raise HTTPException(status_code=503, detail="Mirai is in a private test. Email registration and recovery are not available yet.")
+    if os.getenv("MIRAI_EMAIL_DEV_MODE", "").lower() == "true":
+        return
+    if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
+        raise HTTPException(status_code=503, detail="Email delivery is temporarily unavailable.")
+
+
 def send_verification_email(
     email: str,
     code: str,
 ):
+    require_email_configuration()
     if not RESEND_API_KEY:
         print(
-            f"[EMAIL DEV] Verification code for {email}: {code}"
+            "[EMAIL DEV] Verification delivery skipped"
         )
         return
 
@@ -60,9 +72,10 @@ def send_password_reset_email(
     email: str,
     code: str,
 ):
+    require_email_configuration()
     if not RESEND_API_KEY:
         print(
-            f"[EMAIL DEV] Password reset code for {email}: {code}"
+            "[EMAIL DEV] Password reset delivery skipped"
         )
         return
 

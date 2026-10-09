@@ -27,6 +27,11 @@ def create_reset_code(
     db: Session,
     user_id: str,
 ):
+    from db.models import User
+    db.query(User).filter(User.id == user_id).with_for_update().first()
+    db.query(PasswordReset).filter(
+        PasswordReset.user_id == user_id, PasswordReset.used == False,
+    ).update({"used": True}, synchronize_session=False)
     code = generate_reset_code()
 
     reset = PasswordReset(
@@ -51,6 +56,7 @@ def verify_reset_code(
     db: Session,
     user_id: str,
     code: str,
+    commit: bool = True,
 ):
     reset = (
         db.query(PasswordReset)
@@ -82,16 +88,24 @@ def verify_reset_code(
     if reset.attempts >= MAX_ATTEMPTS:
         return False
 
-    reset.attempts += 1
-
-    if reset.code_hash != _hash_code(code):
+    matched = secrets.compare_digest(reset.code_hash, _hash_code(code))
+    claimed = db.query(PasswordReset).filter(
+        PasswordReset.id == reset.id,
+        PasswordReset.used == False,
+        PasswordReset.attempts < MAX_ATTEMPTS,
+    ).update({
+        PasswordReset.attempts: PasswordReset.attempts + 1,
+        PasswordReset.used: matched,
+    }, synchronize_session=False)
+    if not matched or not claimed:
         db.commit()
         return False
-
-    reset.used = True
-
-    db.commit()
-
+    db.query(PasswordReset).filter(
+        PasswordReset.user_id == user_id,
+        PasswordReset.used == False,
+    ).update({"used": True}, synchronize_session=False)
+    if commit:
+        db.commit()
     return True
 
 
@@ -133,22 +147,10 @@ def resend_reset_code(
     db: Session,
     user_id: str,
 ):
+    from db.models import User
+    db.query(User).filter(User.id == user_id).with_for_update().first()
     if not can_resend_reset_code(db, user_id):
         return None
-
-    previous_codes = (
-        db.query(PasswordReset)
-        .filter(
-            PasswordReset.user_id == user_id,
-            PasswordReset.used == False,
-        )
-        .all()
-    )
-
-    for reset in previous_codes:
-        reset.used = True
-
-    db.commit()
 
     return create_reset_code(
         db,

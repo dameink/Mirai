@@ -1,6 +1,6 @@
 from core.llm import ask_llm
 from core.prompt import build_prompt
-from core.conversation import add_message, get_history
+from core.conversation import add_exchange, get_history
 
 
 # =========================================
@@ -152,18 +152,6 @@ def generate_response(
     # generation.
     # =====================================
 
-    add_message(
-        "user",
-        message,
-        user_id=user_id,
-        db=db,
-    )
-
-    add_message(
-        "assistant",
-        response,
-        user_id=user_id,
-        db=db,
-    )
+    add_exchange(user_id, message, response, db)
 
     return response

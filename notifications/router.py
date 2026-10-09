@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal
 from sqlalchemy.orm import Session
 from notifications.notifications import send_notification
 from db.database import get_db
@@ -12,15 +13,15 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 class PushTokenRequest(BaseModel):
-    token: str
-    platform: str
+    token: str = Field(min_length=15, max_length=500, pattern=r"^(ExponentPushToken|ExpoPushToken)\[[^\]]+\]$")
+    platform: Literal["ios", "android"]
 
 
 @router.post("/register")
 def register_push_token(
     data: PushTokenRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user, scope="function"),
 ):
     existing = (
         db.query(PushToken)
@@ -29,12 +30,14 @@ def register_push_token(
     )
 
     if existing:
-        existing.user_id = current_user.id
+        existing.user_id = current_user["id"]
+        existing.session_id = current_user["session_id"]
         existing.platform = data.platform
         existing.last_used_at = datetime.now(timezone.utc)
     else:
         push_token = PushToken(
             user_id=current_user["id"],
+            session_id=current_user["session_id"],
             token=data.token,
             platform=data.platform,
         )
@@ -49,7 +52,7 @@ def register_push_token(
 @router.post("/test")
 def test_notification(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user, scope="function"),
 ):
     push_token = (
         db.query(PushToken)
@@ -87,7 +90,7 @@ def test_notification(
 def mark_notification_opened(
     notification_id: str,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user, scope="function"),
 ):
     notification = (
         db.query(Notification)
@@ -121,7 +124,7 @@ class NotificationSettingsRequest(BaseModel):
 @router.get("/settings")
 def get_notification_settings(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user, scope="function"),
 ):
     from db.models import User
 
@@ -147,7 +150,7 @@ def get_notification_settings(
 def update_notification_settings(
     data: NotificationSettingsRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user, scope="function"),
 ):
     from db.models import User
 

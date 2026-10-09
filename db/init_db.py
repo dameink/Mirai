@@ -1,36 +1,32 @@
-from sqlalchemy import inspect, text
+"""Versioned schema upgrades; production upgrades run as a single deployment step."""
+from pathlib import Path
+from alembic import command
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from db.database import engine
 
-from db.database import Base, engine
-from db import models
+
+def migration_config():
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    return config
 
 
-def init_db():
-    # Create tables that do not exist yet
-    Base.metadata.create_all(bind=engine)
+def init_db(target_engine=None):
+    config = migration_config()
+    with (target_engine or engine).begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
 
-    # Add columns that may be missing from existing databases
-    inspector = inspect(engine)
 
-    users_columns = {
-        column["name"]
-        for column in inspector.get_columns("users")
-    }
-
-    if "notifications_enabled" not in users_columns:
-        with engine.begin() as connection:
-            connection.execute(
-                text(
-                    """
-                    ALTER TABLE users
-                    ADD COLUMN notifications_enabled
-                    BOOLEAN NOT NULL DEFAULT TRUE
-                    """
-                )
-            )
-
-        print("Added users.notifications_enabled")
+def check_schema(target_engine=None):
+    expected = ScriptDirectory.from_config(migration_config()).get_current_head()
+    with (target_engine or engine).connect() as connection:
+        actual = MigrationContext.configure(connection).get_current_revision()
+    if actual != expected:
+        raise RuntimeError("Database migration required: python -m db.manage upgrade")
+    return actual
 
 
 if __name__ == "__main__":
     init_db()
-    print("Database initialized.")

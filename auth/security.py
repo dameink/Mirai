@@ -56,3 +56,7 @@ def create_token() -> str:
     """
 
     return secrets.token_urlsafe(48)
+
+def token_digest(token: str) -> str:
+    """Only a digest of a high-entropy bearer credential is persisted."""
+    return "sha256$" + hashlib.sha256(token.encode("utf-8")).hexdigest()

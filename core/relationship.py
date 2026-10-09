@@ -1,3 +1,5 @@
+from core.persistence import atomic_write_json, StateCorruptedError
+from core.state_store import read_document, write_document
 import json
 import os
 
@@ -29,6 +31,8 @@ def _relationship_file(user_id=None):
 
 
 def load_relationship(user_id=None):
+    if user_id:
+        return read_document(user_id, "relationship", DEFAULT_RELATIONSHIP)
     relationship_file = _relationship_file(user_id)
 
     if not os.path.exists(relationship_file):
@@ -53,37 +57,20 @@ def load_relationship(user_id=None):
 
         return data
 
-    except json.JSONDecodeError:
-        save_relationship(
-            DEFAULT_RELATIONSHIP,
-            user_id=user_id,
-        )
-
-        return DEFAULT_RELATIONSHIP.copy()
+    except json.JSONDecodeError as error:
+        raise StateCorruptedError("Relationship state needs recovery") from error
 
 
 def save_relationship(
     relationship,
     user_id=None,
 ):
+    if user_id:
+        write_document(user_id, "relationship", relationship)
+        return
     relationship_file = _relationship_file(user_id)
 
-    os.makedirs(
-        os.path.dirname(relationship_file) or ".",
-        exist_ok=True,
-    )
-
-    with open(
-        relationship_file,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            relationship,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    atomic_write_json(relationship_file, relationship)
 
 
 def clamp(value):
@@ -165,11 +152,6 @@ def get_relationship(user_id=None, db=None):
     )
 
     update_relationship_stage(relationship)
-
-    save_relationship(
-        relationship,
-        user_id=user_id,
-    )
 
     return relationship
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from core.state_store import read_document, write_document
 import uuid
 
 
@@ -55,6 +56,7 @@ class LearningSession:
         # User result
 
         self.result = {}
+        self.message_count = 0
 
 
 
@@ -227,67 +229,12 @@ class LearningSession:
 
 
     def get_summary(self):
-
-
-        return {
-
-
-            "id":
-                self.id,
-
-
-            "goal":
-                self.goal,
-
-
-            "mode":
-                self.mode,
-
-
-            "difficulty":
-                self.difficulty,
-
-
-            "activity":
-                self.activity,
-
-
-            "result":
-                self.result,
-
-
-            "mistakes":
-                self.mistakes,
-
-
-            "improvements":
-                self.improvements,
-
-
-            "performance":
-                self.performance,
-
-
-            "feedback":
-                self.feedback,
-
-
-            "completed":
-                self.completed,
-
-
-            "created_at":
-                self.created_at,
-
-
-            "completed_at":
-                self.completed_at
-
-        }
+        return self.get_data()
 
     def get_data(self):
         return {
             "id": self.id,
+            "message_count": self.message_count,
             "goal": self.goal,
             "mode": self.mode,
             "difficulty": self.difficulty,
@@ -313,6 +260,7 @@ class LearningSession:
 
         self.improvements = improvements
 
+        values = []
         if result:
             values = [
                 value
@@ -368,6 +316,30 @@ class SessionSystem:
 
 
         self.sessions = []
+        self.user_id = learner.user_id
+        if self.user_id:
+            records = read_document(self.user_id, "learning_sessions", [])
+            for record in records:
+                session = LearningSession(record["goal"], record["mode"], record["difficulty"])
+                for key in session.__dict__:
+                    if key in record:
+                        value = record[key]
+                        if key in {"created_at", "completed_at"} and value:
+                            value = datetime.fromisoformat(value)
+                        setattr(session, key, value)
+                self.sessions.append(session)
+
+    def save(self):
+        if self.user_id:
+            records = []
+            for session in self.sessions:
+                record = session.get_data()
+                for key in ("created_at", "completed_at"):
+                    if record[key] is not None:
+                        record[key] = record[key].isoformat()
+                records.append(record)
+            write_document(self.user_id, "learning_sessions", records)
+
 
 
 
@@ -449,6 +421,7 @@ class SessionSystem:
                 mistakes=mistakes
             )
 
+        self.save()
         return session
 
 

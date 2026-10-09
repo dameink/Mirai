@@ -1,7 +1,8 @@
+from core.persistence import atomic_write_json, StateCorruptedError
+from core.state_store import read_document, write_document
 import json
 import os
 
-from core.user_state import get_user_file
 
 
 class MemoryStorage:
@@ -9,13 +10,7 @@ class MemoryStorage:
     def __init__(self, path="learner.json", user_id=None):
         self.user_id = user_id
 
-        if user_id:
-            self.path = get_user_file(
-                user_id,
-                "learning_memory.json"
-            )
-        else:
-            self.path = path
+        self.path = path
 
     # =========================
     # SAVE MEMORY
@@ -25,29 +20,18 @@ class MemoryStorage:
 
         data = memory.get_memory_summary()
 
-        os.makedirs(
-            os.path.dirname(self.path) or ".",
-            exist_ok=True
-        )
-
-        with open(
-            self.path,
-            "w",
-            encoding="utf-8"
-        ) as file:
-
-            json.dump(
-                data,
-                file,
-                indent=4,
-                ensure_ascii=False
-            )
+        if self.user_id:
+            write_document(self.user_id, "learning_memory", data)
+        else:
+            atomic_write_json(self.path, data)
 
     # =========================
     # LOAD MEMORY
     # =========================
 
     def load(self):
+        if self.user_id:
+            return read_document(self.user_id, "learning_memory", None)
 
         if not os.path.exists(self.path):
             return None
@@ -62,13 +46,8 @@ class MemoryStorage:
 
                 return json.load(file)
 
-        except json.JSONDecodeError:
-
-            print(
-                f"Warning: corrupted memory file: {self.path}"
-            )
-
-            return None
+        except json.JSONDecodeError as error:
+            raise StateCorruptedError("Learning memory needs recovery") from error
 
     # =========================
     # DELETE MEMORY
@@ -79,5 +58,8 @@ class MemoryStorage:
         Delete persistent learning memory for this user.
         """
 
-        if os.path.exists(self.path):
+        if self.user_id:
+            # Keep a tombstone so an old JSON backup can never resurrect reset data.
+            write_document(self.user_id, "learning_memory", None)
+        elif os.path.exists(self.path):
             os.remove(self.path)

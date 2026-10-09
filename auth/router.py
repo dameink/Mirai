@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import BackgroundTasks, APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from auth.security import hash_password
 
 from auth.models import (
+    DeleteAccountRequest,
     AuthResponse,
     LoginRequest,
     RegisterRequest,
@@ -24,11 +25,12 @@ from auth.email_verification import (
 )
 
 from auth.password_reset import (
-    create_reset_code,
+    resend_reset_code,
     verify_reset_code,
 )
 
 from auth.email_service import (
+    require_email_configuration,
     send_verification_email,
     send_password_reset_email,
 )
@@ -46,6 +48,8 @@ from auth.service import (
 )
 
 from db.database import get_db
+from db.unit_of_work import bind_session, begin_user_transaction, finish_user_transaction, user_transaction
+from starlette.concurrency import run_in_threadpool
 
 
 router = APIRouter(
@@ -64,16 +68,13 @@ def _user_response(user):
     )
 
 
-def get_current_user(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ):
     token = credentials.credentials
 
-    user = get_user_from_access_token(
-        db,
-        token,
-    )
+    user = await run_in_threadpool(get_user_from_access_token, db, token)
 
     if not user:
         raise HTTPException(
@@ -81,7 +82,18 @@ def get_current_user(
             detail="Invalid or expired access token.",
         )
 
-    return user
+    try:
+        await run_in_threadpool(begin_user_transaction, db, user["id"])
+        with bind_session(db):
+            # Recheck after acquiring the lock: logout/reset may have revoked the token.
+            user = await run_in_threadpool(get_user_from_access_token, db, token)
+            if user is None:
+                raise HTTPException(status_code=401, detail="Session expired.")
+            yield user
+            await run_in_threadpool(finish_user_transaction, db, True)
+    except BaseException:
+        await run_in_threadpool(finish_user_transaction, db, False)
+        raise
 
 
 @router.post(
@@ -93,6 +105,7 @@ def register(
     request: RegisterRequest,
     db: Session = Depends(get_db),
 ):
+    require_email_configuration()
     try:
         user = register_user(
             db,
@@ -141,21 +154,26 @@ def login(
             detail="Invalid email or password.",
         )
 
-    if not user.email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Please verify your email before logging in.",
+    # A password reset or deletion must not race with token issuance.
+    with user_transaction(db, user.id):
+        user = authenticate_user(db, request.email, request.password)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        if not user.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please verify your email before logging in.",
+            )
+
+        access_token, refresh_token = create_auth_tokens(
+            db,
+            user.id,
         )
 
-    access_token, refresh_token = create_auth_tokens(
-        db,
-        user.id,
-    )
-
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-    )
+        return AuthResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
 
 
 @router.get(
@@ -163,7 +181,7 @@ def login(
     response_model=UserResponse,
 )
 def me(
-    user=Depends(get_current_user),
+    user=Depends(get_current_user, scope="function"),
 ):
     return _user_response(user)
 
@@ -281,6 +299,7 @@ def resend_verification(
             detail="Email is already verified.",
         )
 
+    require_email_configuration()
     code = resend_verification_code(
         db,
         user.id,
@@ -322,10 +341,10 @@ def forgot_password(
             "message": "If the email exists, a password reset code has been sent.",
         }
 
-    code = create_reset_code(
-        db,
-        user.id,
-    )
+    require_email_configuration()
+    code = resend_reset_code(db, user.id)
+    if code is None:
+        return {"message": "If the email exists, a password reset code has been sent."}
 
     send_password_reset_email(
         user.email,
@@ -353,30 +372,27 @@ def reset_password(
             detail="Invalid or expired reset code.",
         )
 
-    success = verify_reset_code(
-        db,
-        user.id,
-        request.code,
-    )
-
+    with user_transaction(db, user.id):
+        success = verify_reset_code(db, user.id, request.code, commit=False)
+        if success:
+            user.password_hash = hash_password(request.new_password)
+            revoke_all_user_sessions(db, user.id, commit=False)
+        # Failed-attempt counters must commit before returning the validation error.
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset code.",
-        )
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code.")
+    return {"message": "Password reset successfully."}
 
-    user.password_hash = hash_password(
-        request.new_password,
-    )
 
-    revoke_all_user_sessions(
-        db,
-        user.id,
-    )
-
-    db.commit()
-    db.refresh(user)
-
-    return {
-        "message": "Password reset successfully.",
-    }
+@router.delete("/account", status_code=204)
+def delete_account(
+    request: DeleteAccountRequest,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user, scope="function"),
+    db: Session = Depends(get_db),
+):
+    from auth.deletion import delete_account_data, purge_deleted_files
+    if authenticate_user(db, user["email"], request.password) is None:
+        raise HTTPException(status_code=403, detail="Incorrect password.")
+    delete_account_data(db, user["id"])
+    # Function-scoped dependency commits the durable job before this task runs.
+    background_tasks.add_task(purge_deleted_files, user["id"])

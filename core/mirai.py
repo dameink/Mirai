@@ -240,6 +240,18 @@ def chat(
         db=db,
     )
 
+    normalized_mode = (mode or "Auto").strip().lower()
+    if normalized_mode in {"learning", "active_learning"}:
+        response_mode = "ACTIVE_LEARNING"
+    elif normalized_mode in {"casual", "casual_conversation"}:
+        response_mode = "CASUAL_CONVERSATION"
+    else:
+        response_mode = (
+            "ACTIVE_LEARNING"
+            if learning.get("influence", {}).get("should_teach")
+            else "CASUAL_CONVERSATION"
+        )
+
     # ========================================
     # 11. RESPONSE GENERATION
     # ========================================
@@ -273,7 +285,7 @@ def chat(
             "language": language,
 
             # Conversation mode
-            "mode": mode,
+            "mode": response_mode,
         },
 
         strategy=plan,
@@ -282,6 +294,11 @@ def chat(
         user_id=user_id,
         db=db,
     )
+
+    active_session = learning_context.learning.learning.get_last_session()
+    if active_session is not None and not active_session.completed:
+        active_session.message_count += 1
+        learning_context.learning.learning.sessions.save()
 
     # ========================================
     # 12. UPDATED PUBLIC STATE
