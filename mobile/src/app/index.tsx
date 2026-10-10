@@ -3,22 +3,25 @@ import {
   Animated,
   Easing,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Index() {
   const { user, loading } = useAuth();
+  const insets = useSafeAreaInsets();
 
-  const sakuraScale = useRef(new Animated.Value(1)).current;
-  const sakuraOpacity = useRef(new Animated.Value(0.9)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentTranslateY = useRef(new Animated.Value(18)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
+  const [sakuraScale] = useState(() => new Animated.Value(1));
+  const [sakuraOpacity] = useState(() => new Animated.Value(0.9));
+  const [contentOpacity] = useState(() => new Animated.Value(0));
+  const [contentTranslateY] = useState(() => new Animated.Value(18));
+  const [buttonScale] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     if (!loading && !user) {
@@ -123,6 +126,7 @@ export default function Index() {
     <View style={styles.container}>
       <View style={styles.backgroundGlow} />
 
+      <ScrollView style={{ flex: 1, width: "100%" }} contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }}>
       <Animated.View
         style={[
           styles.content,
@@ -191,6 +195,7 @@ export default function Index() {
           Learn · Talk · Grow
         </Text>
       </Animated.View>
+      </ScrollView>
     </View>
   );
 }

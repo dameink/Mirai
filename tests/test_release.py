@@ -752,3 +752,35 @@ def test_closed_beta_production_still_requires_secure_configuration(monkeypatch)
     monkeypatch.setenv("MIRAI_EMAIL_DEV_MODE", "true")
     with pytest.raises(RuntimeError, match="MIRAI_EMAIL_DEV_MODE"):
         validate_environment()
+
+
+def test_model_limit_is_not_reported_as_lost_connection(client, account):
+    uid, headers, _ = account
+    with patch("core.response.ask_llm", side_effect=LLMUnavailableError("AI request limit reached", code="model_rate_limited", retry_after=60)):
+        response = client.post("/chat", headers=headers, json={"message": "Hello", "request_id": "limited-request"})
+    assert response.status_code == 503
+    assert response.json()["code"] == "model_rate_limited"
+    assert response.headers["Retry-After"] == "60"
+    assert client.get("/conversation", headers=headers).json() == []
+    assert client.get("/chat/requests/limited-request", headers=headers).json() == {"status": "unknown"}
+
+
+def test_selected_language_overrides_old_conversation_and_beta_announcements():
+    from core.prompt import build_prompt
+    prompt = build_prompt(context={"language": "English"})
+    assert "Respond in English" in prompt
+    assert "even if earlier messages used another language" in prompt
+    assert "Do not introduce the app as a beta" in prompt
+    assert "Respond in English" in build_prompt()
+
+
+def test_state_reflects_saved_relationship_after_chat(client, account):
+    _, headers, _ = account
+    before = client.get("/state", headers=headers).json()
+    with patch("core.response.ask_llm", return_value="Hey! Nice to see you."):
+        response = client.post("/chat", headers=headers, json={"message": "I am happy to see you, my friend!", "request_id": "state-update-test"})
+    assert response.status_code == 200
+    after = client.get("/state", headers=headers).json()
+    assert after["relationship"] != before["relationship"]
+    assert after["relationship"] == response.json()["state"]["relationship"]
+    assert after["personality"] == before["personality"]  # stable character, evolving relationship

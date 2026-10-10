@@ -7,7 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useSettings } from "../../../context/settings-context";
 import { SectionScreen } from "../../components/section-screen";
 import { authFetch } from "../../auth/auth";
 
@@ -145,13 +146,16 @@ type LearningProfile = {
     reason?: string;
   };
 
-  sessions?: Array<{
-    activity?: string;
+  sessions?: {
+    id: string;
+    completed: boolean;
+    message_count: number;
+    activity?: { name?: string; description?: string };
     score?: number;
     result?: Record<string, number>;
     scores?: Record<string, number>;
     mistakes?: unknown[];
-  }>;
+  }[];
 };
 
 type StateResponse = {
@@ -383,6 +387,7 @@ function getWeakestSkill(skills: SkillItem[]) {
 }
 
 export default function LearnScreen() {
+  const { setMode, setLanguage } = useSettings();
   const [profile, setProfile] =
     useState<LearningProfile | null>(null);
 
@@ -428,15 +433,6 @@ export default function LearnScreen() {
           const data =
             (await response.json()) as StateResponse;
 
-          console.log(
-            "LEARNING STATE:",
-            JSON.stringify(
-              data.learning,
-              null,
-              2
-            )
-          );
-
           setProfile(
             data.learning ?? null
           );
@@ -464,9 +460,6 @@ export default function LearnScreen() {
   /*
    * Initial load.
    */
-  useEffect(() => {
-    loadLearning();
-  }, [loadLearning]);
 
   /*
    * Reload whenever the user opens
@@ -523,9 +516,13 @@ export default function LearnScreen() {
         );
       }
 
-      await response.json();
-
+      const data = await response.json();
+      setMode("Learning");
+      setLanguage("English");
       await loadLearning();
+      router.push({ pathname: "/(tabs)/chat", params: {
+        practice: data.session.activity.description,
+      } });
     } catch (error) {
       console.log(
         "Failed to start learning session:",
@@ -537,6 +534,23 @@ export default function LearnScreen() {
           ? error.message
           : "Failed to start learning session"
       );
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const activeSession = profile?.sessions?.find((session) => !session.completed);
+  const finishSession = async () => {
+    if (!activeSession || starting) return;
+    setStarting(true);
+    try {
+      const response = await authFetch(`/learning/session/${activeSession.id}/complete`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Could not finish practice");
+      await loadLearning();
+      DeviceEventEmitter.emit("learningUpdated");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not finish practice");
     } finally {
       setStarting(false);
     }
@@ -659,7 +673,7 @@ export default function LearnScreen() {
       ) : error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorTitle}>
-            Couldn't load learning
+            Couldn&apos;t load learning
           </Text>
 
           <Text style={styles.errorText}>
@@ -1534,10 +1548,21 @@ export default function LearnScreen() {
                   styles.startButtonText
                 }
               >
-                Start practice
+                {activeSession ? "Continue practice" : "Start practice"}
               </Text>
             )}
           </Pressable>
+          {activeSession && (
+            <View style={styles.activityCard}>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Practice in progress</Text>
+                <Text style={styles.activitySubtitle}>{activeSession.message_count} messages completed</Text>
+                <Pressable onPress={finishSession} disabled={starting || activeSession.message_count === 0}>
+                  <Text style={styles.activityTitle}>Finish practice</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
         </>
       )}
     </SectionScreen>

@@ -262,8 +262,6 @@ export default function ProfileScreen() {
       const gamificationData =
         (await gamificationResponse.json()) as GamificationData;
 
-      console.log("Learning profile updated:", data);
-      console.log("Gamification updated:", gamificationData);
 
       setProfile(data);
       setGamification(gamificationData);
@@ -367,7 +365,7 @@ export default function ProfileScreen() {
       ) : error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorTitle}>
-            Couldn't load profile
+            Couldn&apos;t load profile
           </Text>
 
           <Text style={styles.errorText}>
@@ -480,7 +478,7 @@ export default function ProfileScreen() {
             <View style={styles.dailyGoalHeader}>
               <View>
                 <Text style={styles.dailyGoalLabel}>
-                  TODAY'S GOAL
+                  TODAY&apos;S GOAL
                 </Text>
 
                 <Text style={styles.dailyGoalTitle}>

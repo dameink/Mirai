@@ -8,12 +8,17 @@
       "developmentClient": true,
       "distribution": "internal"
     },
-  "preview": {
-    "distribution": "internal",
-    "android": {
-      "buildType": "apk"
-    }
-  },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "environment": "preview",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mirai-9wx9.onrender.com"
+      }
+    },
     "production": {
       "autoIncrement": true
     }

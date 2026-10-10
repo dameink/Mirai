@@ -3,14 +3,16 @@ import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import { authFetch } from "../auth/auth";
 
-export async function registerForPushNotificationsAsync(
-  accessToken: string
-) {
+export async function registerForPushNotificationsAsync() {
   if (!Device.isDevice) {
     console.log("Push notifications require a physical device");
     return null;
+  }
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", { name: "Mirai", importance: Notifications.AndroidImportance.DEFAULT });
   }
 
   const { status: existingStatus } =
@@ -43,13 +45,10 @@ export async function registerForPushNotificationsAsync(
     })
   ).data;
 
-  console.log("Expo Push Token:", token);
-
-  await fetch(`${API_URL}/notifications/register`, {
+  const response = await authFetch("/notifications/register", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
       token,
@@ -57,5 +56,6 @@ export async function registerForPushNotificationsAsync(
     }),
   });
 
+  if (!response.ok) throw new Error(`Push registration failed: ${response.status}`);
   return token;
 }

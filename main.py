@@ -108,7 +108,8 @@ async def unavailable_state(request, error):
 
 @app.exception_handler(LLMUnavailableError)
 async def unavailable_model(request, error):
-    return JSONResponse(status_code=503, content={"detail": "Mirai is temporarily unavailable. Please try again."})
+    return JSONResponse(status_code=503, content={"detail": str(error), "code": error.code},
+                        headers={"Retry-After": str(error.retry_after)} if error.retry_after else None)
 
 
 from core.operations import router as operations_router

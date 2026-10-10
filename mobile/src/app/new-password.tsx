@@ -1,3 +1,4 @@
+import { apiFetch } from "../auth/auth";
 import { useState } from "react";
 import {
   Alert,
@@ -49,8 +50,8 @@ export default function NewPasswordScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/auth/reset-password`,
+      const response = await apiFetch(
+        "/auth/reset-password",
         {
           method: "POST",
           headers: {

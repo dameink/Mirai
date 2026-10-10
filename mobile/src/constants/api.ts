@@ -1,1 +1,1 @@
-export const API_URL = "https://mirai-9wx9.onrender.com";
+export const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://mirai-9wx9.onrender.com").replace(/\/$/, "");

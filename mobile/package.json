@@ -37,6 +37,7 @@
     "@types/react": "~19.2.4",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -45,7 +46,17 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --test tests/*.test.cjs",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "apk:check": "node scripts/apk.cjs",
+    "apk:build": "node scripts/apk.cjs --build",
+    "postinstall": "patch-package --error-on-fail"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "uuid": "11.1.1",
+    "decode-uri-component": "0.5.0"
+  }
 }

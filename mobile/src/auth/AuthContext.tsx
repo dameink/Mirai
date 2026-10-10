@@ -1,6 +1,7 @@
 import React, {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -8,11 +9,12 @@ import React, {
 import {
   getAccessToken,
   getRefreshToken,
+  getSessionVersion,
   login as loginRequest,
   register as registerRequest,
   logout as logoutRequest,
   authFetch,
-  saveTokens,
+  onSessionExpired,
 } from "./auth";
 
 type User = {
@@ -24,6 +26,8 @@ type User = {
 type AuthContextType = {
   user: User | null;
   loading: boolean;
+  sessionError: boolean;
+  retrySession: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -41,11 +45,15 @@ export function AuthProvider({
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState(false);
 
-  const refreshUser = async () => {
+  useEffect(() => onSessionExpired(() => setUser(null)), []);
+
+  const refreshUser = useCallback(async () => {
+    const version = getSessionVersion();
     const token = await getAccessToken();
 
-    if (!token) {
+    if (!token && !await getRefreshToken()) {
       setUser(null);
       return;
     }
@@ -53,29 +61,37 @@ export function AuthProvider({
     try {
       const response = await authFetch("/auth/me");
 
-      if (!response.ok) {
-        setUser(null);
+      if (response.status === 401 || response.status === 403) {
+        if (version === getSessionVersion()) setUser(null);
         return;
+      }
+      if (!response.ok) {
+        throw new Error("Could not restore your session. Please try signing in again.");
       }
 
       const data = await response.json();
-      setUser(data);
-    } catch {
-      setUser(null);
+      if (version === getSessionVersion()) setUser(data);
+    } catch (error) {
+      if (version === getSessionVersion()) setUser(null);
+      throw error;
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    const initialize = async () => {
+  const retrySession = useCallback(async () => {
+        setLoading(true);
+        setSessionError(false);
       try {
         await refreshUser();
+      } catch {
+        setSessionError(true);
       } finally {
         setLoading(false);
       }
-    };
+  }, [refreshUser]);
 
-    initialize();
-  }, []);
+  // Initial hydration uses the same guarded path as an explicit reconnect.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void retrySession(); }, [retrySession]);
 
   const login = async (email: string, password: string) => {
     await loginRequest(email, password);
@@ -83,14 +99,7 @@ export function AuthProvider({
   };
 
   const register = async (email: string, password: string) => {
-    const data = await registerRequest(email, password);
-
-    await saveTokens(
-      data.access_token,
-      data.refresh_token
-    );
-
-    await refreshUser();
+    await registerRequest(email, password);
   };
 
   const logout = async () => {
@@ -103,6 +112,8 @@ export function AuthProvider({
       value={{
         user,
         loading,
+        sessionError,
+        retrySession,
         login,
         register,
         logout,

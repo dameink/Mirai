@@ -1,4 +1,5 @@
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -40,6 +41,7 @@ export function BottomNavigation({
 }: {
   activeRoute: TabRouteName;
 }) {
+  const insets = useSafeAreaInsets();
   const navigateToTab = (targetRoute: TabRouteName) => {
     if (targetRoute === activeRoute) {
       return;
@@ -49,7 +51,7 @@ export function BottomNavigation({
   };
 
   return (
-    <View style={styles.bottomBar}>
+    <View style={[styles.bottomBar, { height: 70 + Math.max(insets.bottom, 8), paddingBottom: Math.max(insets.bottom, 8) }]}>
       {items.map((item) => {
         const isActive = item.route === activeRoute;
 

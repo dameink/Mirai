@@ -1,0 +1,19 @@
+{
+  "build_id": "18372f65-f2f0-40b5-82de-78c853166b76",
+  "versionCode": 6,
+  "status": "FINISHED",
+  "files": {
+    "package.json": "d4a3b484a71be6d1c8ed482ddb8d5f42659a66e4551de4529b84d752f7eff321",
+    "package-lock.json": "0cd06f64a6d4183e1ac5b6dd854ca31680a6c4ec6f17a930b349f1dac500b6d6",
+    "eas.json": "3ba7614cb8f48dee429360915c429000a1ec83e3d70c8231a6f946e8b2b79da0",
+    "app.json": "83ef1ed82563fb71d71df77aad3ddf995a6e862099564fed6971b7ae19d25d2a",
+    "patches/braces+3.0.3.patch": "d079af488333ec641d21f3d70a7f401b0c2f174abf6c838a7b675190f70d134a",
+    "patches/node-forge+1.4.0.patch": "e7448a2e6146d961080f76876dae1bf5ae740dd4d48291937584e60b73c26d1d",
+    "patches/query-string+7.1.3.patch": "78260bcbc4f55fb9adae63ec50829b8dd531b60b62f87671295c2dde2677b06a"
+  },
+  "apk_sha256": "cd7fe27db3d6502576f21ff81be27cb8e0d8fbd3ad8b168049c5cd0c49cb77d6",
+  "apk_bytes": 105310415,
+  "download_url": "https://expo.dev/artifacts/eas/NcA7nK932ffgA268Xf0CGhoYQ5cHmywUqWAJaN_PvJ4.apk",
+  "zip_integrity": "passed",
+  "device_test": "pending"
+}

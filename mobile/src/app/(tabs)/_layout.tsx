@@ -1,11 +1,15 @@
 import { createMaterialTopTabNavigator } from "expo-router/js-top-tabs";
-import { withLayoutContext } from "expo-router";
+import { Redirect, withLayoutContext } from "expo-router";
+import { useAuth } from "../../auth/AuthContext";
 
 const { Navigator } = createMaterialTopTabNavigator();
 
 const MaterialTopTabs = withLayoutContext(Navigator);
 
 export default function TabsLayout() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Redirect href="/login" />;
   return (
     <MaterialTopTabs
       initialRouteName="chat"

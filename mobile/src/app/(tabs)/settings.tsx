@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import {
   Alert,
+  DeviceEventEmitter,
   Animated,
   Easing,
   Pressable,
@@ -10,8 +11,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
+import { clearPending } from "../../storage/outbox";
 import { authFetch } from "../../auth/auth";
+import { useAuth } from "../../auth/AuthContext";
 import { useSettings } from "../../../context/settings-context";
 
 export type Mode = "Auto" | "Casual" | "Learning";
@@ -50,7 +53,7 @@ function AnimatedRow({
   onPress: () => void;
   style?: any;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(1));
 
   const animatePress = (pressed: boolean) => {
     Animated.spring(scale, {
@@ -92,15 +95,11 @@ function AnimatedModeRow({
   selected: boolean;
   onPress: () => void;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(1));
 
-  const radioScale = useRef(
-    new Animated.Value(selected ? 1 : 0),
-  ).current;
+  const [radioScale] = useState(() => new Animated.Value(selected ? 1 : 0));
 
-  const activeOpacity = useRef(
-    new Animated.Value(selected ? 1 : 0),
-  ).current;
+  const [activeOpacity] = useState(() => new Animated.Value(selected ? 1 : 0));
 
   useEffect(() => {
     Animated.parallel([
@@ -117,7 +116,7 @@ function AnimatedModeRow({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [selected]);
+  }, [selected, activeOpacity, radioScale]);
 
   const animatePress = (pressed: boolean) => {
     Animated.spring(scale, {
@@ -201,6 +200,13 @@ function AnimatedModeRow({
 }
 
 export default function SettingsScreen() {
+  const { logout, user } = useAuth();
+  const signOut = () => {
+    Alert.alert("Sign out", "Sign out of Mirai on this device?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign out", style: "destructive", onPress: () => { void logout(); } },
+    ]);
+  };
   const {
     language,
     mode,
@@ -210,41 +216,23 @@ export default function SettingsScreen() {
     setNotificationsEnabled,
   } = useSettings();
 
-  const screenOpacity = useRef(
-    new Animated.Value(0),
-  ).current;
+  const [screenOpacity] = useState(() => new Animated.Value(0));
 
-  const screenTranslate = useRef(
-    new Animated.Value(12),
-  ).current;
+  const [screenTranslate] = useState(() => new Animated.Value(12));
 
-  const preferencesOpacity = useRef(
-    new Animated.Value(0),
-  ).current;
+  const [preferencesOpacity] = useState(() => new Animated.Value(0));
 
-  const preferencesTranslate = useRef(
-    new Animated.Value(12),
-  ).current;
+  const [preferencesTranslate] = useState(() => new Animated.Value(12));
 
-  const miraiOpacity = useRef(
-    new Animated.Value(0),
-  ).current;
+  const [miraiOpacity] = useState(() => new Animated.Value(0));
 
-  const miraiTranslate = useRef(
-    new Animated.Value(12),
-  ).current;
+  const [miraiTranslate] = useState(() => new Animated.Value(12));
 
-  const modesOpacity = useRef(
-    new Animated.Value(0),
-  ).current;
+  const [modesOpacity] = useState(() => new Animated.Value(0));
 
-  const modesTranslate = useRef(
-    new Animated.Value(12),
-  ).current;
+  const [modesTranslate] = useState(() => new Animated.Value(12));
 
-  const footerOpacity = useRef(
-    new Animated.Value(0),
-  ).current;
+  const [footerOpacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const createEntrance = (
@@ -298,7 +286,7 @@ export default function SettingsScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [footerOpacity, miraiOpacity, miraiTranslate, modesOpacity, modesTranslate, preferencesOpacity, preferencesTranslate, screenOpacity, screenTranslate]);
 
   const chooseLanguage = () => {
     Alert.alert(
@@ -350,18 +338,7 @@ export default function SettingsScreen() {
     );
   };
 
-  const showAbout = () => {
-    Alert.alert(
-      "Mirai",
-      "Mirai is your AI language-learning companion.\n\nLearn, practice, and grow together.",
-      [
-        {
-          text: "Close",
-          style: "cancel",
-        },
-      ],
-    );
-  };
+  const showAbout = () => router.push("/about");
 
   const clearConversation = () => {
     Alert.alert(
@@ -390,6 +367,8 @@ export default function SettingsScreen() {
                 );
               }
 
+              if (user) await clearPending(String(user.id));
+              DeviceEventEmitter.emit("conversationCleared");
               Alert.alert(
                 "Conversation cleared",
                 "Your conversation history has been cleared.",
@@ -438,6 +417,8 @@ export default function SettingsScreen() {
                 );
               }
 
+              if (user) await clearPending(String(user.id));
+              DeviceEventEmitter.emit("conversationCleared");
               Alert.alert(
                 "Mirai reset",
                 "Mirai has been reset successfully.",
@@ -519,7 +500,7 @@ export default function SettingsScreen() {
                 </Text>
 
                 <Text style={styles.rowDescription}>
-                  The language you're learning
+                  The language you&apos;re learning
                 </Text>
               </View>
 
@@ -600,6 +581,16 @@ export default function SettingsScreen() {
           </Text>
 
           <View style={styles.group}>
+            <AnimatedRow onPress={() => router.push("/delete-account")}>
+              <Text style={[styles.rowLabel, styles.dangerLabel]}>Delete account</Text>
+              <Text style={styles.arrow}>›</Text>
+            </AnimatedRow>
+            <View style={styles.rowBorder} />
+            <AnimatedRow onPress={signOut}>
+              <Text style={styles.rowLabel}>Sign out</Text>
+              <Text style={styles.arrow}>›</Text>
+            </AnimatedRow>
+            <View style={styles.rowBorder} />
             <AnimatedRow onPress={showAbout}>
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>
@@ -656,7 +647,7 @@ export default function SettingsScreen() {
                 </Text>
 
                 <Text style={styles.rowDescription}>
-                  Reset Mirai's current state
+                  Reset Mirai&apos;s current state
                 </Text>
               </View>
 

@@ -1,3 +1,4 @@
+import { apiFetch } from "../auth/auth";
 import { useState } from "react";
 import {
   Alert,
@@ -32,8 +33,8 @@ export default function VerifyEmailScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/auth/verify-email`,
+      const response = await apiFetch(
+        "/auth/verify-email",
         {
           method: "POST",
           headers: {
@@ -85,8 +86,8 @@ export default function VerifyEmailScreen() {
     setResending(true);
 
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/auth/resend-verification`,
+      const response = await apiFetch(
+        "/auth/resend-verification",
         {
           method: "POST",
           headers: {

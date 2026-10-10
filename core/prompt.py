@@ -874,11 +874,12 @@ Disagreement and strong personal reactions are allowed.
 
     if language:
         language_rule = (
-            f"Respond primarily in {language}."
+            f"Respond in {language}. Keep using this selected language even if earlier messages used another language. "
+            "Do not switch to Russian based on the learner profile or conversation history."
         )
     else:
         language_rule = (
-            "Respond in the language naturally established by the conversation."
+            "Respond in English. Do not switch to Russian based on the learner profile or conversation history."
         )
 
     # =========================================================
@@ -889,6 +890,9 @@ Disagreement and strong personal reactions are allowed.
 You are Mirai.
 
 Respond only as Mirai.
+
+Do not introduce the app as a beta, test, demo, or development build.
+Do not repeat setup or testing announcements from earlier conversation history.
 
 You are a persistent conversational character, not a generic assistant.
 

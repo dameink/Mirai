@@ -1,6 +1,7 @@
 
 import {
   View,
+  Alert,
   Text,
   StyleSheet,
   TextInput,
@@ -16,20 +17,36 @@ import {
 } from "react-native";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
 
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { BottomNavigation } from "../../components/bottom-navigation";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { requestErrorMessage, throwResponseError } from "../../auth/errors";
 import { authFetch } from "../../auth/auth";
+import { useAuth } from "../../auth/AuthContext";
+import { savePending, readPending, clearPending } from "../../storage/outbox";
 import { useSettings } from "../../../context/settings-context";
 
+// Called only when the user sends a new message; retries reuse the same identifier.
+function createRequestId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+type ChatPayload = { request_id: string; message: string; language: string; mode: string };
+
 type Message = {
-  id: number;
+  id: number | string;
   text: string;
   sender: "mirai" | "user";
   timestamp?: string;
+  request?: ChatPayload;
+  failed?: boolean;
+  error?: string;
 };
 
 type ChatResponse = {
@@ -52,7 +69,7 @@ function AnimatedPressable({
   style?: any;
   disabled?: boolean;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(1));
 
   const pressIn = () => {
     if (disabled) return;
@@ -100,13 +117,13 @@ function AnimatedPressable({
    ========================================================= */
 
 function TypingIndicator() {
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
+  const [dot1] = useState(() => new Animated.Value(0.3));
+  const [dot2] = useState(() => new Animated.Value(0.3));
+  const [dot3] = useState(() => new Animated.Value(0.3));
 
-  const translate1 = useRef(new Animated.Value(0)).current;
-  const translate2 = useRef(new Animated.Value(0)).current;
-  const translate3 = useRef(new Animated.Value(0)).current;
+  const [translate1] = useState(() => new Animated.Value(0));
+  const [translate2] = useState(() => new Animated.Value(0));
+  const [translate3] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const animateDot = (
@@ -217,13 +234,15 @@ function TypingIndicator() {
    ========================================================= */
 
 function AnimatedMessage({
-  message,
+  message, onRetry, sending,
 }: {
   message: Message;
+  onRetry: () => void;
+  sending: boolean;
 }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(8)).current;
-  const scale = useRef(new Animated.Value(0.98)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [translateY] = useState(() => new Animated.Value(8));
+  const [scale] = useState(() => new Animated.Value(0.98));
 
   useEffect(() => {
     Animated.parallel([
@@ -248,7 +267,7 @@ function AnimatedMessage({
         bounciness: 3,
       }),
     ]).start();
-  }, []);
+  }, [opacity, scale, translateY]);
 
   return (
     <Animated.View
@@ -283,6 +302,12 @@ function AnimatedMessage({
             {message.text}
           </Text>
 
+          {message.failed && (
+            <Pressable onPress={onRetry} disabled={sending}>
+              <Text style={styles.timestamp}>{message.error || "Delivery unconfirmed."} Tap to retry.</Text>
+            </Pressable>
+          )}
+
           {message.timestamp && (
             <Text style={styles.timestamp}>
               {new Date(message.timestamp).toLocaleTimeString([], {
@@ -302,18 +327,49 @@ function AnimatedMessage({
    ========================================================= */
 
 export default function ChatScreen() {
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [historyAttempt, setHistoryAttempt] = useState(0);
+  const uid = user ? String(user.id) : null;
+  const pendingRef = useRef(false);
+  const conversationVersion = useRef(0);
+  const [historyReady, setHistoryReady] = useState(false);
+  const { practice } = useLocalSearchParams<{ practice?: string }>();
   const [message, setMessage] = useState("");
+  useFocusEffect(useCallback(() => {
+    if (practice) {
+      setMessage(practice);
+      router.setParams({ practice: undefined });
+    }
+  }, [practice]));
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const sendingRef = useRef(false);
+  const [hasOlder, setHasOlder] = useState(false);
+  useEffect(() => {
+    const listener = DeviceEventEmitter.addListener("conversationCleared", () => {
+      conversationVersion.current += 1;
+      pendingRef.current = false;
+      setMessages([]);
+      setHasOlder(false);
+      setHistoryReady(true);
+      setMessage("");
+    });
+    return () => listener.remove();
+  }, []);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const prepending = useRef(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const menuOpacity = useRef(new Animated.Value(0)).current;
-  const menuScale = useRef(new Animated.Value(0.94)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const thinkingOpacity = useRef(new Animated.Value(0.55)).current;
-  const sendScale = useRef(new Animated.Value(1)).current;
+  const [menuOpacity] = useState(() => new Animated.Value(0));
+  const [menuScale] = useState(() => new Animated.Value(0.94));
+  const [backdropOpacity] = useState(() => new Animated.Value(0));
+  const [thinkingOpacity] = useState(() => new Animated.Value(0.55));
+  const [sendScale] = useState(() => new Animated.Value(1));
 
   const {
     language,
@@ -425,49 +481,63 @@ export default function ChatScreen() {
      ======================================================= */
 
   useEffect(() => {
+    const version = ++conversationVersion.current;
+    // Reset account-scoped UI before restoring this account’s asynchronous history.
+    setMessages([]);
+    setHistoryReady(false);
+    setHistoryError(null);
+    setHasOlder(false);
+    pendingRef.current = false;
+    if (!uid) return;
+    let active = true;
+    const isCurrent = () => active && version === conversationVersion.current;
     const loadConversation = async () => {
+      let storageReady = false;
       try {
-        const response = await authFetch("/conversation");
-
-        if (!response.ok) {
-          throw new Error("Failed to load conversation");
+        const pending = await readPending(uid);
+        if (!isCurrent()) return;
+        storageReady = true;
+        if (pending && isCurrent()) {
+          pendingRef.current = true;
+          setMessages([{ id: pending.request_id, text: pending.message, sender: "user", request: pending, failed: true }]);
         }
-
-        const data: {
-          role: "user" | "assistant";
-          content: string;
-          timestamp?: string;
-        }[] = await response.json();
-
-        const loadedMessages: Message[] = data.map(
-          (item, index) => ({
-            id: index + 1,
-            text: item.content,
-            sender:
-              item.role === "user"
-                ? "user"
-                : "mirai",
-            timestamp: item.timestamp,
-          })
-        );
-
-        setMessages(loadedMessages);
-
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({
-            animated: false,
-          });
-        }, 100);
+        let unresolved = pending;
+        if (pending) {
+          const status = await authFetch(`/chat/requests/${encodeURIComponent(pending.request_id)}`);
+          if (!status.ok) await throwResponseError(status);
+          const result = await status.json();
+          if (!isCurrent()) return;
+          if (result.status === "completed" || result.status === "cleared") {
+            await clearPending(uid);
+            unresolved = null;
+            if (isCurrent()) {
+              pendingRef.current = false;
+              setMessages([]);
+            }
+          }
+        }
+        const response = await authFetch("/conversation");
+        if (!response.ok) await throwResponseError(response);
+        const data: { id: string; role: string; content: string; timestamp?: string }[] = await response.json();
+        const loaded: Message[] = data.map(item => ({ id: item.id, text: item.content, sender: item.role === "user" ? "user" : "mirai", timestamp: item.timestamp }));
+        if (unresolved) loaded.push({ id: unresolved.request_id, text: unresolved.message, sender: "user", request: unresolved, failed: true });
+        if (isCurrent()) {
+          pendingRef.current = Boolean(unresolved);
+          setMessages(loaded);
+          setHasOlder(data.length === 100);
+        }
       } catch (error) {
-        console.error(
-          "Failed to load conversation:",
-          error
-        );
+        if (isCurrent()) setHistoryError(requestErrorMessage(error));
+      } finally {
+        if (isCurrent()) setHistoryReady(storageReady);
       }
     };
-
-    loadConversation();
-  }, []);
+    void loadConversation();
+    return () => {
+      active = false;
+      if (conversationVersion.current === version) conversationVersion.current += 1;
+    };
+  }, [uid, historyAttempt]);
 
   /* =======================================================
      AUTO SCROLL
@@ -475,6 +545,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (messages.length === 0) return;
+    if (prepending.current) { prepending.current = false; return; }
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({
@@ -496,6 +567,7 @@ export default function ChatScreen() {
     const keyboardListener = Keyboard.addListener(
       eventName,
       () => {
+        setKeyboardVisible(true);
         setTimeout(() => {
           scrollViewRef.current?.scrollToEnd({
             animated: true,
@@ -504,7 +576,9 @@ export default function ChatScreen() {
       }
     );
 
+    const hideListener = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKeyboardVisible(false));
     return () => {
+      hideListener.remove();
       keyboardListener.remove();
     };
   }, []);
@@ -513,109 +587,87 @@ export default function ChatScreen() {
      SEND MESSAGE
      ======================================================= */
 
-  const sendMessage = async () => {
-    const trimmedMessage = message.trim();
-
-    if (!trimmedMessage || isSending) {
-      return;
+  const loadOlder = async () => {
+    if (loadingOlder || !messages.length) return;
+    const version = conversationVersion.current;
+    setLoadingOlder(true);
+    setHistoryError(null);
+    try {
+      const response = await authFetch(`/conversation?before_id=${encodeURIComponent(messages[0].id)}&limit=100`);
+      if (!response.ok) throw new Error("Could not load older messages. Please retry.");
+      const data: { id: string; content: string; role: string; timestamp: string }[] = await response.json();
+      const older: Message[] = data.map((item) => ({ id: item.id, text: item.content, sender: item.role === "user" ? "user" : "mirai", timestamp: item.timestamp }));
+      if (version !== conversationVersion.current) return;
+      prepending.current = true;
+      setMessages((current) => [...older, ...current]);
+      setHasOlder(data.length === 100);
+    } catch (error) {
+      if (version === conversationVersion.current) setHistoryError(error instanceof Error ? error.message : "Could not load history");
+    } finally {
+      setLoadingOlder(false);
     }
+  };
 
-    Animated.sequence([
-      Animated.spring(sendScale, {
-        toValue: 0.88,
-        useNativeDriver: true,
-        speed: 35,
-        bounciness: 2,
-      }),
-
-      Animated.spring(sendScale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 25,
-        bounciness: 5,
-      }),
-    ]).start();
-
-    const newMessage: Message = {
-      id: Date.now(),
-      text: trimmedMessage,
-      sender: "user",
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      newMessage,
-    ]);
-
-    setMessage("");
+  const sendRequest = async (outgoing: Message) => {
+    if (sendingRef.current || !outgoing.request || !uid || !historyReady) return;
+    const version = conversationVersion.current;
+    sendingRef.current = true;
     setIsSending(true);
-
+    setMessages((current) => current.map((item) => item.id === outgoing.id ? { ...item, failed: false } : item));
     try {
       const response = await authFetch("/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: trimmedMessage,
-          language,
-          mode,
-        }),
+        body: JSON.stringify(outgoing.request),
       });
-
-      if (!response.ok) {
-        throw new Error(
-          `Mirai server returned ${response.status}`
-        );
-      }
-
-      const data: ChatResponse =
-        await response.json();
-
-      if (!data.response) {
-        throw new Error(
-          "Mirai returned an empty response"
-        );
-      }
-
+      if (!response.ok) await throwResponseError(response);
+      const data: ChatResponse = await response.json();
+      if (!data.response) throw new Error("Mirai returned an empty response");
+      if (version !== conversationVersion.current) return;
+      await clearPending(uid);
+      if (version !== conversationVersion.current) return;
+      pendingRef.current = false;
       DeviceEventEmitter.emit("learningUpdated");
-
-      const miraiMessage: Message = {
-        id: Date.now() + 1,
-        text: data.response,
-        sender: "mirai",
+      DeviceEventEmitter.emit("miraiUpdated");
+      setMessages((current) => [...current, {
+        id: `${outgoing.id}:response`, text: data.response!, sender: "mirai",
         timestamp: new Date().toISOString(),
-      };
-
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        miraiMessage,
-      ]);
+      }]);
     } catch (error) {
-      console.error(
-        "Failed to send message:",
-        error
-      );
-
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          id: Date.now() + 1,
-          text:
-            "I can’t connect right now. Please try again.",
-          sender: "mirai",
-        },
-      ]);
+      if (version !== conversationVersion.current) return;
+      setMessages((current) => current.map((item) => item.id === outgoing.id ? { ...item, failed: true, error: requestErrorMessage(error) } : item));
     } finally {
+      sendingRef.current = false;
       setIsSending(false);
-
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({
-          animated: true,
-        });
-      }, 100);
     }
+  };
+
+  const sendMessage = async () => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage || sendingRef.current || !uid || !historyReady) return;
+    if (pendingRef.current) {
+      Alert.alert("Message awaiting delivery", "Retry the pending message, or clear the conversation before sending another.");
+      return;
+    }
+    if (trimmedMessage.length > 4000) { Alert.alert("Message too long", "Please use at most 4000 characters."); return; }
+    // This is a deduplication identifier, not an authentication secret.
+    const requestId = createRequestId();
+    const outgoing: Message = {
+      id: requestId, text: trimmedMessage, sender: "user", timestamp: new Date().toISOString(),
+      request: { request_id: requestId, message: trimmedMessage, language, mode },
+    };
+    const version = conversationVersion.current;
+    sendingRef.current = true;
+    try {
+      await savePending(uid, outgoing.request!);
+      if (version !== conversationVersion.current) return;
+      pendingRef.current = true;
+    } catch {
+      Alert.alert("Message not saved", "Could not securely save the message. Please try again.");
+      return;
+    } finally { sendingRef.current = false; }
+    setMessages((current) => [...current, outgoing]);
+    setMessage("");
+    await sendRequest(outgoing);
   };
 
   /* =======================================================
@@ -623,7 +675,7 @@ export default function ChatScreen() {
      ======================================================= */
 
   const newConversation = async () => {
-    if (isSending) return;
+    if (sendingRef.current) return;
 
     try {
       const response = await authFetch(
@@ -639,7 +691,11 @@ export default function ChatScreen() {
         );
       }
 
+      conversationVersion.current += 1;
+      if (uid) await clearPending(uid);
+      pendingRef.current = false;
       setMessages([]);
+      setHasOlder(false);
       setMessage("");
       setMenuVisible(false);
     } catch (error) {
@@ -655,7 +711,7 @@ export default function ChatScreen() {
      ======================================================= */
 
   const clearConversation = async () => {
-    if (isSending) return;
+    if (sendingRef.current) return;
 
     try {
       const response = await authFetch(
@@ -671,7 +727,11 @@ export default function ChatScreen() {
         );
       }
 
+      conversationVersion.current += 1;
+      if (uid) await clearPending(uid);
+      pendingRef.current = false;
       setMessages([]);
+      setHasOlder(false);
       setMessage("");
       setMenuVisible(false);
     } catch (error) {
@@ -687,7 +747,7 @@ export default function ChatScreen() {
      ======================================================= */
 
   const resetMirai = async () => {
-    if (isSending) return;
+    if (sendingRef.current) return;
 
     try {
       const response = await authFetch(
@@ -703,7 +763,11 @@ export default function ChatScreen() {
         );
       }
 
+      conversationVersion.current += 1;
+      if (uid) await clearPending(uid);
+      pendingRef.current = false;
       setMessages([]);
+      setHasOlder(false);
       setMessage("");
       setMenuVisible(false);
     } catch (error) {
@@ -719,7 +783,7 @@ export default function ChatScreen() {
      ======================================================= */
 
   const sendQuickReply = (text: string) => {
-    if (isSending) return;
+    if (sendingRef.current) return;
 
     setMessage(text);
   };
@@ -739,16 +803,12 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={
-        Platform.OS === "ios"
-          ? "height"
-          : "padding"
-      }
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
       {/* HEADER */}
 
-      <View style={styles.header}>
+      <View style={[styles.header, { height: 56 + insets.top, paddingTop: insets.top }]}>
         <View style={styles.miraiInfo}>
           <Animated.View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -950,6 +1010,12 @@ export default function ChatScreen() {
               : "interactive"
           }
         >
+          {hasOlder && (
+            <Pressable onPress={loadOlder} disabled={loadingOlder}>
+              <Text style={styles.miraiText}>{loadingOlder ? "Loading…" : "Load older messages"}</Text>
+            </Pressable>
+          )}
+          {historyError && <Pressable onPress={() => setHistoryAttempt(value => value + 1)}><Text style={styles.miraiText}>{historyError} Tap to reload history.</Text></Pressable>}
           {/* EMPTY STATE */}
 
           {messages.length === 0 && (
@@ -967,9 +1033,9 @@ export default function ChatScreen() {
                       styles.miraiText
                     }
                   >
-                    Hey! I'm Mirai 🌸
+                    Hey! I&apos;m Mirai 🌸
                     {"\n\n"}
-                    I'm really happy you're here.
+                    I&apos;m really happy you&apos;re here.
                     {"\n\n"}
                     Want to practice English
                     together?
@@ -1055,6 +1121,8 @@ export default function ChatScreen() {
             <AnimatedMessage
               key={item.id}
               message={item}
+              onRetry={() => { void sendRequest(item); }}
+              sending={isSending}
             />
           ))}
 
@@ -1072,7 +1140,7 @@ export default function ChatScreen() {
 
       {/* INPUT */}
 
-      <View style={styles.inputArea}>
+      <View style={[styles.inputArea, keyboardVisible && { paddingBottom: 8 }]}>
         <View
           style={
             styles.inputContainer
@@ -1086,6 +1154,10 @@ export default function ChatScreen() {
             style={styles.input}
             returnKeyType="send"
             onSubmitEditing={sendMessage}
+            multiline
+            maxLength={4000}
+            submitBehavior="submit"
+            accessibilityLabel="Message Mirai"
             editable={!isSending}
           />
 
@@ -1156,9 +1228,7 @@ export default function ChatScreen() {
 
       {/* BOTTOM NAVIGATION */}
 
-      <BottomNavigation
-        activeRoute="chat"
-      />
+      {!keyboardVisible && <BottomNavigation activeRoute="chat" />}
     </KeyboardAvoidingView>
   );
 }
@@ -1363,6 +1433,10 @@ const styles = StyleSheet.create({
   },
 
   input: {
+    minHeight: 44,
+    maxHeight: 120,
+    paddingVertical: 10,
+    textAlignVertical: "center",
     flex: 1,
     fontSize: 16,
     color: "#222222",

@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
@@ -22,11 +23,12 @@ export function SectionScreen({
   description,
   children,
 }: SectionScreenProps) {
+  const insets = useSafeAreaInsets();
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.eyebrow}>{eyebrow}</Text>

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   Animated,
   Easing,
   Pressable,
@@ -239,11 +240,12 @@ function getPersonalityTraits(personality?: Personality) {
 export default function MiraiScreen() {
   const [state, setState] = useState<MiraiState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [aboutVisible, setAboutVisible] = useState(false);
 
-  const screenOpacity = useRef(new Animated.Value(0)).current;
-  const screenTranslateY = useRef(new Animated.Value(15)).current;
-  const avatarScale = useRef(new Animated.Value(1)).current;
+  const [screenOpacity] = useState(() => new Animated.Value(0));
+  const [screenTranslateY] = useState(() => new Animated.Value(15));
+  const [avatarScale] = useState(() => new Animated.Value(1));
 
   const loadState = useCallback(async () => {
     try {
@@ -259,18 +261,20 @@ export default function MiraiScreen() {
        * Important:
        * /state is the single source for Mirai's state.
        */
-      console.log("Mirai /state:", JSON.stringify(data));
 
       setState(data);
-    } catch (error) {
-      console.log("Failed to load Mirai state:", error);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
+
   useEffect(() => {
-    loadState();
+    const listener = DeviceEventEmitter.addListener("miraiUpdated", loadState);
+    return () => listener.remove();
   }, [loadState]);
 
   useFocusEffect(
@@ -382,6 +386,7 @@ export default function MiraiScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.content}
           >
+            {loadError && <Pressable onPress={loadState}><Text>Could not update Mirai. Tap to retry.</Text></Pressable>}
             {/* HERO */}
 
             <View style={styles.heroCard}>
@@ -577,7 +582,7 @@ export default function MiraiScreen() {
 
             <SectionHeader
               title="Personality"
-              caption="Who Mirai is"
+              caption="Her core traits stay consistent"
             />
 
             <View style={styles.card}>
@@ -653,47 +658,6 @@ export default function MiraiScreen() {
               />
             </View>
 
-            {/* ENGLISH STORY */}
-
-            <SectionHeader
-              title="Why English matters to her"
-              caption="Her story"
-            />
-
-            <View style={styles.storyCard}>
-              <View style={styles.storyIcon}>
-                <Text style={styles.storyEmoji}>
-                  🗣️
-                </Text>
-              </View>
-
-              <Text style={styles.storyTitle}>
-                She knew the rules. Speaking was harder.
-              </Text>
-
-              <Text style={styles.storyText}>
-                Mirai had English tutoring for several
-                years. She understood grammar and could
-                do well in class, but natural
-                conversations were much harder.
-              </Text>
-
-              <Text style={styles.storyText}>
-                That experience changed how she thinks
-                about language learning. For Mirai,
-                speaking, making mistakes, joking around
-                and simply spending time together are
-                all part of learning.
-              </Text>
-
-              <View style={styles.storyQuoteBox}>
-                <Text style={styles.storyQuote}>
-                  "You don't really learn a language
-                  until you start living in it."
-                </Text>
-              </View>
-            </View>
-
             {/* MEMORY */}
 
             <SectionHeader
@@ -716,7 +680,7 @@ export default function MiraiScreen() {
                 <Text style={styles.memoryDescription}>
                   Important details from your
                   conversations can become part of
-                  Mirai's long-term memory.
+                  Mirai&apos;s long-term memory.
                 </Text>
               </View>
 
@@ -833,8 +797,8 @@ export default function MiraiScreen() {
                 <View style={styles.aboutDivider} />
 
                 <Text style={styles.aboutQuote}>
-                  "The future is more fun when you don't
-                  have to figure it out alone."
+                  &quot;The future is more fun when you don&apos;t
+                  have to figure it out alone.&quot;
                 </Text>
               </View>
             )}

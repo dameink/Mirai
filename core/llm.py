@@ -3,7 +3,7 @@ import os
 from functools import lru_cache
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, RateLimitError, APITimeoutError
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -11,7 +11,10 @@ MODEL = os.getenv("MIRAI_LLM_MODEL", "poolside/laguna-s-2.1:free")
 
 
 class LLMUnavailableError(RuntimeError):
-    pass
+    def __init__(self, message, code="model_unavailable", retry_after=None):
+        super().__init__(message)
+        self.code = code
+        self.retry_after = retry_after
 
 
 @lru_cache(maxsize=1)
@@ -42,6 +45,16 @@ def ask_llm(system_prompt, conversation=None, user_message=None):
         if not content or not content.strip():
             raise LLMUnavailableError("Empty model response")
         return content
+    except RateLimitError as error:
+        # Never log provider bodies: they can contain private prompts or credentials.
+        logger.warning("Language model request failed (RateLimitError)")
+        raise LLMUnavailableError(
+            "Mirai\'s AI service has reached its request limit. Please try again later.",
+            code="model_rate_limited", retry_after=60,
+        ) from error
+    except APITimeoutError as error:
+        logger.warning("Language model request failed (APITimeoutError)")
+        raise LLMUnavailableError("Mirai took too long to respond. Please retry.", code="model_timeout") from error
     except Exception as error:
         # Do not log provider payloads, credentials, or private conversations.
         logger.warning("Language model request failed (%s)", type(error).__name__)

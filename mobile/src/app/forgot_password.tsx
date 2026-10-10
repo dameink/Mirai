@@ -1,6 +1,6 @@
+import { apiFetch } from "../auth/auth";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -31,8 +31,8 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/auth/forgot-password`,
+      const response = await apiFetch(
+        "/auth/forgot-password",
         {
           method: "POST",
           headers: {
@@ -106,7 +106,7 @@ export default function ForgotPasswordScreen() {
             </Text>
 
             <Text style={styles.description}>
-              Enter your email and we'll send you a code to reset
+              Enter your email and we&apos;ll send you a code to reset
               your password.
             </Text>
 

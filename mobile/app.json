@@ -17,9 +17,9 @@
     },
     "android": {
       "package": "com.ursuslabs.mirai",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize"
     },
-    "softwareKeyboardLayoutMode": "resize",
     "plugins": [
       "expo-router",
       "expo-splash-screen",
@@ -43,6 +43,7 @@
       "eas": {
         "projectId": "16c8d3b2-f114-4153-9db9-4c73c0b50ad9"
       }
-    }
+    },
+    "owner": "ursus-labs"
   }
 }

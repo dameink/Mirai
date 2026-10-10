@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { AuthError } from "../auth/auth";
 import { useAuth } from "../auth/AuthContext";
 
 export default function LoginScreen() {
@@ -53,6 +54,10 @@ export default function LoginScreen() {
 
     router.replace("/(tabs)/chat");
   } catch (err) {
+    if (err instanceof AuthError && err.status === 403) {
+      router.push({ pathname: "/verify-email", params: { email: trimmedEmail } });
+      return;
+    }
     setError(
       err instanceof Error ? err.message : "Authentication failed"
     );
@@ -199,7 +204,7 @@ export default function LoginScreen() {
 
             {!isRegister && (
               <Pressable
-                onPress={() => router.push("/forgot-password")}
+                onPress={() => router.push("/forgot_password")}
                 disabled={loading}
                 style={({ pressed }) => [
                   styles.forgotButton,
