@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from db.models import ChatReceipt
 import hashlib
+from core.diagnostics import diagnose_request
+from sqlalchemy.exc import SQLAlchemyError
 from core.llm import LLMUnavailableError
 from core.persistence import StateCorruptedError
 from core.rate_limit import LIMITS, admit_request
@@ -93,6 +95,15 @@ async def limit_requests(request, call_next):
     return await call_next(request)
 
 
+app.middleware("http")(diagnose_request)
+
+
+@app.exception_handler(SQLAlchemyError)
+async def unavailable_database(request, error):
+    request.state.failure_code = "database_unavailable"
+    return JSONResponse(status_code=503, content={"detail": "Saved data is temporarily unavailable. Please retry shortly.", "code": "database_unavailable"})
+
+
 from db.unit_of_work import UserUnavailableError
 
 
@@ -103,11 +114,13 @@ async def unavailable_user(request, error):
 
 @app.exception_handler(StateCorruptedError)
 async def unavailable_state(request, error):
+    request.state.failure_code = "state_unavailable"
     return JSONResponse(status_code=503, content={"detail": "Your saved state is temporarily unavailable. Please contact support."})
 
 
 @app.exception_handler(LLMUnavailableError)
 async def unavailable_model(request, error):
+    request.state.failure_code = error.code
     return JSONResponse(status_code=503, content={"detail": str(error), "code": error.code},
                         headers={"Retry-After": str(error.retry_after)} if error.retry_after else None)
 

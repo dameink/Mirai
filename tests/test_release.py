@@ -299,8 +299,9 @@ def test_late_failure_rolls_back_messages_and_state(client, account):
     from db.models import UserDocument
     _, headers, _ = account
     with patch('core.response.ask_llm', return_value='Offline answer'), patch('main.register_activity', side_effect=RuntimeError('simulated reward failure')):
-        with pytest.raises(RuntimeError, match='simulated reward failure'):
-            client.post('/chat', headers=headers, json={'message': 'I like English practice.'})
+        response = client.post('/chat', headers=headers, json={'message': 'I like English practice.'})
+        assert response.status_code == 500
+        assert response.json()['code'] == 'internal_error'
     with SessionLocal() as db:
         assert db.query(Message).count() == 0
         assert db.query(UserDocument).count() == 0
@@ -784,3 +785,33 @@ def test_state_reflects_saved_relationship_after_chat(client, account):
     assert after["relationship"] != before["relationship"]
     assert after["relationship"] == response.json()["state"]["relationship"]
     assert after["personality"] == before["personality"]  # stable character, evolving relationship
+
+
+def test_request_diagnostics_do_not_log_secrets_or_raw_urls(client, account, caplog):
+    _, headers, _ = account
+    private = "DO_NOT_LOG_THIS_PRIVATE_CONTENT"
+    with patch('main.register_activity', side_effect=RuntimeError(private)), patch('core.response.ask_llm', return_value='Hello'):
+        response = client.post('/chat?secret=' + private, headers={**headers, 'X-Request-ID': private}, json={'message': private})
+    assert response.status_code == 500
+    request_id = response.headers['X-Request-ID']
+    assert len(request_id) == 32 and request_id != private
+    assert private not in response.text
+    messages = [r.getMessage() for r in caplog.records if r.name == 'mirai.requests']
+    assert any('id=' + request_id in message and 'route=/chat ' in message for message in messages)
+    assert private not in '\n'.join(messages)
+    assert headers['Authorization'] not in '\n'.join(messages)
+    client.get('/unknown/' + private + '?token=' + private)
+    assert private not in '\n'.join(r.getMessage() for r in caplog.records if r.name == 'mirai.requests')
+
+
+def test_database_errors_are_redacted_and_identified(client, account, caplog):
+    from sqlalchemy.exc import OperationalError
+    _, headers, _ = account
+    secret = 'PRIVATE_DATABASE_VALUE'
+    with patch('main.load_conversation', side_effect=OperationalError('SELECT ' + secret, {'password': secret}, Exception(secret))):
+        response = client.get('/conversation', headers=headers)
+    assert response.status_code == 503
+    assert response.json()['code'] == 'database_unavailable'
+    assert secret not in response.text
+    assert secret not in '\n'.join(r.getMessage() for r in caplog.records if r.name == 'mirai.requests')
+    assert 'category=database_unavailable' in caplog.text

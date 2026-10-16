@@ -1,0 +1,78 @@
+{
+  "verified_at": "2026-10-16T10:16:39.735427+00:00",
+  "result": "passed",
+  "synthetic_data_only": true,
+  "postgres_client": "pg_dump (PostgreSQL) 18.6 (Homebrew)",
+  "tables": {
+    "account_erasure_jobs": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "achievements": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "alembic_version": {
+      "rows": 1,
+      "sha256": "1a7e978694fa144023a46c8f3ead066163e815f229832f2263cf90627b8bbadb"
+    },
+    "chat_receipts": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "email_verifications": {
+      "rows": 1,
+      "sha256": "8872a58d3ef220c5697e51b8ca68c74fa0f327b2a3c2f25abd909cdb8b6150af"
+    },
+    "emotional_memories": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "gamification_states": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "memories": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "messages": {
+      "rows": 1,
+      "sha256": "5cec5756270190db18fba078b46f8569e86d12d06058b6b377514c49eda53f3f"
+    },
+    "notifications": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "password_resets": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "push_receipts": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "push_tokens": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "request_limits": {
+      "rows": 2,
+      "sha256": "08d83db963cb6e192bc59318d4c6b8beaeeca07a346c1790fc41b0291cf0d151"
+    },
+    "sessions": {
+      "rows": 1,
+      "sha256": "db294c486c6d08ba0aa3f1e244ddc33ad8d89db871f0b3732997a0564ad40f71"
+    },
+    "user_documents": {
+      "rows": 1,
+      "sha256": "6eabd054ed2d65e6b17bf2561a21b55c4699564a55fa8b4f3720d46cdff22888"
+    },
+    "users": {
+      "rows": 2,
+      "sha256": "96ae9e0e9154a89994f87286bc3fbc5a846a7b7470defdf36408bb90937d07a6"
+    }
+  },
+  "backup_sha256": "886cd66a20cf34e23384650e0109df92010d6dbb2e021f6460db07c2e0bebd6e",
+  "scope": "Isolated local PostgreSQL dump/restore with synthetic data; production backup scheduling and actual Neon restore not verified"
+}

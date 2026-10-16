@@ -29,6 +29,8 @@ if DATABASE_URL.startswith("sqlite"):
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
+    pool_pre_ping=True,  # Reconnect stale pooled connections after database sleep/restart.
+    hide_parameters=True,  # SQL exception representations must not include user data.
 )
 
 SessionLocal = sessionmaker(
