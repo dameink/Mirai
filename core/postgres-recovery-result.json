@@ -1,5 +1,5 @@
 {
-  "verified_at": "2026-10-16T10:16:39.735427+00:00",
+  "verified_at": "2026-10-16T10:56:37.196203+00:00",
   "result": "passed",
   "synthetic_data_only": true,
   "postgres_client": "pg_dump (PostgreSQL) 18.6 (Homebrew)",
@@ -9,36 +9,36 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "achievements": {
-      "rows": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "rows": 12,
+      "sha256": "3ccb349295b33963014f57640044cc84b26658308330482a257f6b54bbb26615"
     },
     "alembic_version": {
       "rows": 1,
       "sha256": "1a7e978694fa144023a46c8f3ead066163e815f229832f2263cf90627b8bbadb"
     },
     "chat_receipts": {
-      "rows": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "rows": 24,
+      "sha256": "71d46ffb28247df589e011c946d7f8f7722b7e193d293a231f7489788ea3510e"
     },
     "email_verifications": {
       "rows": 1,
-      "sha256": "8872a58d3ef220c5697e51b8ca68c74fa0f327b2a3c2f25abd909cdb8b6150af"
+      "sha256": "252c47548005068e9437d24bc8f70135c73a80b0355596f1bcd932b273e3c360"
     },
     "emotional_memories": {
       "rows": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "gamification_states": {
-      "rows": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "rows": 6,
+      "sha256": "504f7f6cce647c538a32cbb4dede3274f1c653d56f291bf73b8ce543cc96dfdc"
     },
     "memories": {
       "rows": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "messages": {
-      "rows": 1,
-      "sha256": "5cec5756270190db18fba078b46f8569e86d12d06058b6b377514c49eda53f3f"
+      "rows": 49,
+      "sha256": "6375cc1ebb161f62e06a737c5f50a91e44f27e63204e690bc88bb66ea56df76b"
     },
     "notifications": {
       "rows": 0,
@@ -57,22 +57,22 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "request_limits": {
-      "rows": 2,
-      "sha256": "08d83db963cb6e192bc59318d4c6b8beaeeca07a346c1790fc41b0291cf0d151"
+      "rows": 3,
+      "sha256": "c5698fe80abda2cee9dfd51a344c1e14722dcb3071992c47eb2df3c9195161a1"
     },
     "sessions": {
-      "rows": 1,
-      "sha256": "db294c486c6d08ba0aa3f1e244ddc33ad8d89db871f0b3732997a0564ad40f71"
+      "rows": 7,
+      "sha256": "1ef5ff71eda829c02b11c4894642367eb2c4716ee879f89a2cd403fd78243926"
     },
     "user_documents": {
-      "rows": 1,
-      "sha256": "6eabd054ed2d65e6b17bf2561a21b55c4699564a55fa8b4f3720d46cdff22888"
+      "rows": 25,
+      "sha256": "b37ef898c2dd0dd38a9ce417219b39d7afc2e4eb642d04e3bd2ba3d1019402de"
     },
     "users": {
-      "rows": 2,
-      "sha256": "96ae9e0e9154a89994f87286bc3fbc5a846a7b7470defdf36408bb90937d07a6"
+      "rows": 8,
+      "sha256": "156b66033884a3ad534c56a47c8201c1e2d2a453e4a366bf5d1cdde99787bc2d"
     }
   },
-  "backup_sha256": "886cd66a20cf34e23384650e0109df92010d6dbb2e021f6460db07c2e0bebd6e",
+  "backup_sha256": "58b136eb95d2ff4ee85086e7cdf2ceebc3c033c0e883915704b064becf5a2128",
   "scope": "Isolated local PostgreSQL dump/restore with synthetic data; production backup scheduling and actual Neon restore not verified"
 }

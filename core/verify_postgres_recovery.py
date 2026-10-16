@@ -57,7 +57,8 @@ def main():
             source = f'postgresql://mirai_recovery@127.0.0.1:{port}/mirai_source_test'
             restored = source.replace('/mirai_source_test', '/mirai_restored_test')
             env['MIRAI_TEST_DATABASE_URL'] = source
-            run([os.sys.executable, '-m', 'pytest', 'tests/test_release.py', '-q'], env)
+            run([os.sys.executable, '-m', 'pytest', 'tests', '-q'], env)
+            run([os.sys.executable, 'tests/load_smoke.py'], env)
             # Seed independently of test order, including Unicode and nested JSON.
             env['DATABASE_URL'] = source
             run([os.sys.executable, '-c', """
