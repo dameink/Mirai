@@ -29,7 +29,7 @@ export function onSessionExpired(listener: () => void) {
 }
 
 export async function saveTokens(accessToken: string, refreshToken: string, version = sessionVersion) {
-  if (!accessToken || !refreshToken) throw new Error("Invalid authentication response");
+  if (typeof accessToken !== "string" || !accessToken || typeof refreshToken !== "string" || !refreshToken) throw new Error("Invalid authentication response");
   return writeCredentials(async () => {
     if (version !== sessionVersion) return false;
     // One atomic entry prevents a killed app from restoring a mismatched token pair.
@@ -44,8 +44,16 @@ async function readTokens() {
   await credentialWrite;
   const saved = await SecureStore.getItemAsync(SESSION_KEY);
   if (saved) {
-    const tokens = JSON.parse(saved);
-    return { accessToken: tokens.accessToken as string | null, refreshToken: tokens.refreshToken as string | null };
+    try {
+      const tokens = JSON.parse(saved);
+      if (tokens && typeof tokens === "object") {
+        return {
+          accessToken: typeof tokens.accessToken === "string" && tokens.accessToken ? tokens.accessToken : null,
+          refreshToken: typeof tokens.refreshToken === "string" && tokens.refreshToken ? tokens.refreshToken : null,
+        };
+      }
+    } catch { /* A damaged local record must not trap the app in startup retries. */ }
+    return { accessToken: null, refreshToken: null };
   }
   // Read older APK credentials until the next successful login/refresh migrates them.
   return { accessToken: await SecureStore.getItemAsync(ACCESS_TOKEN_KEY), refreshToken: await SecureStore.getItemAsync(REFRESH_TOKEN_KEY) };
@@ -122,6 +130,7 @@ async function refreshAccessToken() {
     const version = sessionVersion;
     refreshInFlight = (async () => {
       const token = await getRefreshToken();
+      if (version !== sessionVersion) return null;
       if (!token) {
         if (version === sessionVersion) await clearTokens();
         return null;
@@ -148,9 +157,18 @@ async function refreshAccessToken() {
 
 export async function authFetch(endpoint: string, options: RequestInit = {}) {
   const version = sessionVersion;
+  const requireCurrentSession = () => {
+    if (version !== sessionVersion) throw new AuthError("Request cancelled because the signed-in account changed.", 409);
+  };
   let token = await getAccessToken();
-  if (!token && await getRefreshToken()) token = await refreshAccessToken();
+  requireCurrentSession();
+  if (!token) {
+    const refresh = await getRefreshToken();
+    requireCurrentSession();
+    if (refresh) token = await refreshAccessToken();
+  }
   const send = (accessToken: string | null) => {
+    requireCurrentSession();
     const headers = new Headers(options.headers);
     headers.set("Content-Type", "application/json");
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
@@ -160,6 +178,7 @@ export async function authFetch(endpoint: string, options: RequestInit = {}) {
   if (response.status !== 401 || version !== sessionVersion) return response;
   // Another request may already have rotated the token while this one was running.
   const latest = await getAccessToken();
+  if (version !== sessionVersion) return response;
   const refreshed = latest && latest !== token ? latest : await refreshAccessToken();
   if (!refreshed || version !== sessionVersion) return response;
   const retried = await send(refreshed);

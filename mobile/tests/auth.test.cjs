@@ -6,7 +6,7 @@ const { join } = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function harness(fetchImpl, initial = {}) {
+function harness(fetchImpl, initial = {}, beforeRead = async () => {}) {
   const store = new Map(Object.entries(initial));
   const source = readFileSync(join(__dirname, '../src/auth/auth.ts'), 'utf8');
   const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -17,7 +17,7 @@ function harness(fetchImpl, initial = {}) {
     require(name) {
       if (name === '../constants/api') return { API_URL: 'https://offline.test' };
       if (name === 'expo-secure-store') return {
-        getItemAsync: async key => store.get(key) || null,
+        getItemAsync: async key => { await beforeRead(key); return store.get(key) || null; },
         setItemAsync: async (key, value) => { assert.equal(typeof value, 'string'); store.set(key, value); },
         deleteItemAsync: async key => { store.delete(key); },
       };
@@ -168,4 +168,50 @@ test('logout removes a migrated atomic session', async () => {
   const { api, store } = harness(async () => response(200), { mirai_session_v2: JSON.stringify({ accessToken: 'a', refreshToken: 'r' }) });
   await api.logout();
   assert.equal(store.size, 0);
+});
+
+
+test('an old account request cannot send its payload with new account credentials', async () => {
+  let unblock;
+  let started;
+  let block = true;
+  const reading = new Promise(resolve => { started = resolve; });
+  const sent = [];
+  const { api } = harness(async (url, options) => {
+    sent.push(url);
+    return response(200, tokens);
+  }, initial, async key => {
+    if (key === 'mirai_session_v2' && block) {
+      block = false;
+      started();
+      await new Promise(resolve => { unblock = resolve; });
+    }
+  });
+  const oldRequest = api.authFetch('/chat', { method: 'POST', body: JSON.stringify({ message: 'Private old account message' }) });
+  const rejected = assert.rejects(oldRequest, error => error.status === 409);
+  await reading;
+  await api.login('new@example.com', 'password');
+  unblock();
+  await rejected;
+  assert.deepEqual(sent, ['https://offline.test/auth/login']);
+  assert.equal(await api.getAccessToken(), 'new-access');
+});
+
+
+test('damaged atomic credentials allow logout and a fresh sign-in without reviving legacy tokens', async () => {
+  for (const saved of ['{broken', 'null', '[]', '{"accessToken":123,"refreshToken":{}}']) {
+    const { api, store } = harness(async () => response(200, tokens), { ...initial, mirai_session_v2: saved });
+    assert.equal(await api.getAccessToken(), null);
+    assert.equal(await api.getRefreshToken(), null);
+    await api.logout();
+    assert.equal(store.size, 0);
+    await api.login('a@example.com', 'password');
+    assert.equal(await api.getAccessToken(), 'new-access');
+  }
+});
+
+test('non-string server credentials cannot overwrite a working session', async () => {
+  const { api } = harness(async () => response(200), initial);
+  await assert.rejects(api.saveTokens({ value: 'bad' }, 123), /Invalid authentication response/);
+  assert.equal(await api.getAccessToken(), 'old-access');
 });
