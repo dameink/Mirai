@@ -409,7 +409,7 @@ def test_fresh_migrations_match_orm_and_repeat_safely(tmp_path):
     try:
         init_db(local)
         init_db(local)
-        assert check_schema(local) == '0004_push_delivery'
+        assert check_schema(local) == '0005_content_reports'
         with local.connect() as connection:
             assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
     finally:
@@ -447,7 +447,7 @@ def test_backup_restore_preserves_state_and_prevents_overwrite(client, account, 
     with sqlite3.connect(restored) as db:
         assert db.execute('SELECT count(*) FROM users').fetchone()[0] == 1
         assert db.execute('SELECT count(*) FROM user_documents').fetchone()[0] == 4
-        assert db.execute('SELECT version_num FROM alembic_version').fetchone()[0] == '0004_push_delivery'
+        assert db.execute('SELECT version_num FROM alembic_version').fetchone()[0] == '0005_content_reports'
     with pytest.raises(FileExistsError):
         restore_sqlite(backup, restored, receipt['sha256'])
     with pytest.raises(ValueError, match='checksum'):
@@ -815,3 +815,43 @@ def test_database_errors_are_redacted_and_identified(client, account, caplog):
     assert secret not in response.text
     assert secret not in '\n'.join(r.getMessage() for r in caplog.records if r.name == 'mirai.requests')
     assert 'category=database_unavailable' in caplog.text
+
+
+def test_report_reply_is_owned_deduplicated_and_retained_until_account_deletion(client, account):
+    from core.reports import ContentReport
+    uid, headers, _ = account
+    with patch('core.response.ask_llm', return_value='Reported synthetic reply'):
+        reply = client.post('/chat', headers=headers, json={'message': 'Hello', 'request_id': 'report-test'}).json()
+    mid = reply['assistant_message_id']
+    history = client.get('/conversation', headers=headers).json()
+    assert mid in [m['id'] for m in history if m['role'] == 'assistant']
+    payload = {'message_id': mid, 'reason': 'harmful'}
+    assert client.post('/content-reports', headers=headers, json=payload).json() == {'status': 'received'}
+    assert client.post('/content-reports', headers=headers, json=payload).status_code == 200
+    user_message = next(m['id'] for m in history if m['role'] == 'user')
+    assert client.post('/content-reports', headers=headers, json={**payload, 'message_id': user_message}).status_code == 404
+    assert client.post('/content-reports', headers=headers, json={**payload, 'reason': 'invalid'}).status_code == 422
+    assert client.delete('/conversation', headers=headers).status_code == 200
+    with SessionLocal() as db:
+        report = db.query(ContentReport).one()
+        assert report.user_id == uid and report.content == 'Reported synthetic reply'
+    assert client.request('DELETE', '/auth/account', headers=headers, json={'password': 'Password-123'}).status_code == 204
+    with SessionLocal() as db:
+        assert db.query(ContentReport).count() == 0
+
+
+def test_reports_reject_other_accounts_and_require_authentication(client, account):
+    from core.reports import ContentReport
+    from uuid import uuid4
+    uid, headers, _ = account
+    with SessionLocal() as db:
+        other = User(email='reports-other@example.com', password_hash='disabled')
+        db.add(other); db.flush()
+        message = Message(user_id=other.id, role='assistant', content='Private other user content')
+        db.add(message); db.commit(); mid = message.id
+    payload = {'message_id': mid, 'reason': 'other'}
+    assert client.post('/content-reports', json=payload).status_code in (401, 403)
+    assert client.post('/content-reports', headers=headers, json=payload).status_code == 404
+    assert client.post('/content-reports', headers=headers, json={**payload, 'message_id': str(uuid4())}).status_code == 404
+    with SessionLocal() as db:
+        assert db.query(ContentReport).count() == 0

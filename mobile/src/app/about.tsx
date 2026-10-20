@@ -8,6 +8,8 @@ export default function AboutScreen() {
     <Text>Credentials and unconfirmed messages are kept in your device’s secure storage. Do not send passwords, payment details or sensitive personal information in chats.</Text>
     <Text style={styles.heading}>Control and deletion</Text>
     <Text>You can disable notifications, clear conversations or delete your account in Settings. Account deletion requires your password. Separate backups and provider records may remain under their retention policies. Contact support for help with data requests.</Text>
+    <Text style={styles.heading}>Reporting AI replies</Text>
+    <Text>Use Report reply below an AI message to send that reply and a reason to the developer for review. Reports remain if you clear the chat and are removed when you delete your account.</Text>
     <Text style={styles.heading}>Learning limits</Text>
     <Text>Structured practice currently focuses on English. Japanese and Spanish conversation options do not yet provide equivalent courses. Mirai is not a medical, legal or emergency service.</Text>
     <Text style={styles.heading}>Support</Text>

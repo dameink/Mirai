@@ -17,6 +17,7 @@ class RequestLimit(Base):
 
 
 LIMITS = {
+    "/content-reports": (10, 60),
     "/auth/account": (5, 60),
     "/auth/login": (20, 60),
     "/auth/register": (10, 3600),

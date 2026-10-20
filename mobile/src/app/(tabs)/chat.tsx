@@ -24,6 +24,7 @@ import {
 } from "react";
 
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { ReportReply } from "../../components/report-reply";
 import { BottomNavigation } from "../../components/bottom-navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { requestErrorMessage, throwResponseError } from "../../auth/errors";
@@ -51,6 +52,7 @@ type Message = {
 
 type ChatResponse = {
   response?: string;
+  assistant_message_id?: string;
   state?: unknown;
 };
 
@@ -301,6 +303,8 @@ function AnimatedMessage({
           >
             {message.text}
           </Text>
+
+          {message.sender === "mirai" && <ReportReply messageId={typeof message.id === "string" && /^[0-9a-f-]{36}$/i.test(message.id) ? message.id : undefined} />}
 
           {message.failed && (
             <Pressable onPress={onRetry} disabled={sending}>
@@ -629,7 +633,7 @@ export default function ChatScreen() {
       DeviceEventEmitter.emit("learningUpdated");
       DeviceEventEmitter.emit("miraiUpdated");
       setMessages((current) => [...current, {
-        id: `${outgoing.id}:response`, text: data.response!, sender: "mirai",
+        id: data.assistant_message_id || `${outgoing.id}:response`, text: data.response!, sender: "mirai",
         timestamp: new Date().toISOString(),
       }]);
     } catch (error) {

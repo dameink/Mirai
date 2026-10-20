@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from db.models import ChatReceipt
+from db.models import ChatReceipt, Message
 import hashlib
 from core.diagnostics import diagnose_request
 from sqlalchemy.exc import SQLAlchemyError
@@ -129,6 +129,8 @@ from core.operations import router as operations_router
 from core.preferences import router as preferences_router
 app.include_router(operations_router)
 app.include_router(preferences_router)
+from core.reports import router as reports_router
+app.include_router(reports_router)
 app.include_router(auth_router)
 app.include_router(notifications_router)
 app.include_router(gamification_router)
@@ -218,6 +220,9 @@ def chat_endpoint(
     )
 
     result = jsonable_encoder(result)
+    reply = db.query(Message).filter_by(user_id=current_user["id"], role="assistant").order_by(Message.created_at.desc(), Message.id.desc()).first()
+    if reply is not None:
+        result["assistant_message_id"] = reply.id
     if request.request_id:
         db.add(ChatReceipt(user_id=current_user["id"], request_id=request.request_id,
                            payload_hash=payload_hash, response=result))
